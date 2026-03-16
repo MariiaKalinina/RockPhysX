@@ -3,10 +3,10 @@ from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
 
-from thesis_rp.core.parameters import FluidPhase, MicrostructureParameters, MineralPhase
-from thesis_rp.core.sample import SampleDescription
-from thesis_rp.core.saturation import SaturationState
-from thesis_rp.utils.plotting import (
+from rockphysx.core.parameters import FluidPhase, MicrostructureParameters, MineralPhase
+from rockphysx.core.sample import SampleDescription
+from rockphysx.core.saturation import SaturationState
+from rockphysx.utils.plotting import (
     plot_alpha_calibration_misfit,
     plot_saturation_comparison,
     plot_thermal_model_comparison,

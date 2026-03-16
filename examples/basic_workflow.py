@@ -1,8 +1,8 @@
-from thesis_rp.core.parameters import FluidPhase, MatrixProperties, MicrostructureParameters, MineralPhase
-from thesis_rp.core.sample import SampleDescription
-from thesis_rp.core.saturation import SaturationState
-from thesis_rp.cross_property.approach_a1 import thermal_only_calibration_then_predict
-from thesis_rp.forward.solver import ForwardSolver
+from rockphysx.core.parameters import FluidPhase, MatrixProperties, MicrostructureParameters, MineralPhase
+from rockphysx.core.sample import SampleDescription
+from rockphysx.core.saturation import SaturationState
+from rockphysx.cross_property.approach_a1 import thermal_only_calibration_then_predict
+from rockphysx.forward.solver import ForwardSolver
 
 
 def main() -> None:

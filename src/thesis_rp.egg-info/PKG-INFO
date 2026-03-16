@@ -90,10 +90,10 @@ Where formulas were adapted from `rockphypy`, the relevant functions include att
 ## Quickstart
 
 ```python
-from thesis_rp.core.parameters import MineralPhase, FluidPhase, MatrixProperties, MicrostructureParameters
-from thesis_rp.core.sample import SampleDescription
-from thesis_rp.core.saturation import SaturationState
-from thesis_rp.forward.solver import ForwardSolver
+from rockphysx.core.parameters import MineralPhase, FluidPhase, MatrixProperties, MicrostructureParameters
+from rockphysx.core.sample import SampleDescription
+from rockphysx.core.saturation import SaturationState
+from rockphysx.forward.solver import ForwardSolver
 
 quartz = MineralPhase(
     name="quartz",
@@ -137,7 +137,7 @@ pytest
 ## Repository layout
 
 ```text
-src/thesis_rp/
+src/rockphysx/
   core/            typed scientific inputs and base abstractions
   models/          EMT, transport, elastic, fluid, and matrix models
   forward/         unified forward solver

@@ -1,0 +1,1 @@
+"""Effective-medium model subpackage."""

@@ -1,11 +1,11 @@
 import pytest
 
-from thesis_rp.core.parameters import FluidPhase, MatrixProperties, MicrostructureParameters, MineralPhase
-from thesis_rp.core.sample import SampleDescription
-from thesis_rp.core.saturation import SaturationState
-from thesis_rp.forward.solver import ForwardSolver
-from thesis_rp.inverse.objective import Observation
-from thesis_rp.inverse.parametrization_alpha import calibrate_constant_aspect_ratio
+from rockphysx.core.parameters import FluidPhase, MatrixProperties, MicrostructureParameters, MineralPhase
+from rockphysx.core.sample import SampleDescription
+from rockphysx.core.saturation import SaturationState
+from rockphysx.forward.solver import ForwardSolver
+from rockphysx.inverse.objective import Observation
+from rockphysx.inverse.parametrization_alpha import calibrate_constant_aspect_ratio
 
 
 def make_sample(aspect_ratio: float = 0.12):
