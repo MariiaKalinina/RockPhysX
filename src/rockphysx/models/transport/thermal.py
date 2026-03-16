@@ -11,6 +11,7 @@ from rockphysx.models.emt.bounds import (
     Wiener_Upper_Bound,
 )
 from rockphysx.models.emt.gsa_thermal import gsa_effective_property
+from rockphysx.models.emt.sca_thermal import sca_effective_conductivity
 
 
 def thermal_conductivity(
@@ -24,15 +25,25 @@ def thermal_conductivity(
     """
     Thermal-conductivity forward model.
 
-    Supported thermal models:
-    - gsa
-    - likhteneker / lichtenecker / geometric
-    - wiener_upper
-    - wiener_lower
-    - wiener_average
-    - hs_upper
-    - hs_lower
-    - hs_average
+    Supported thermal models
+    ------------------------
+    - "gsa"
+    - "sca"
+    - "likhteneker" / "lichtenecker" / "geometric"
+    - "wiener_upper"
+    - "wiener_lower"
+    - "wiener_average"
+    - "hs_upper"
+    - "hs_lower"
+    - "hs_average"
+
+    Notes
+    -----
+    In RockPhysX, SCA and GSA are intentionally kept as different models.
+
+    - "sca" uses the isotropic random-inclusion / generalized Clausius-Mossotti
+      formulation from the Berryman/Mavko equations provided by the user.
+    - "gsa" uses the separate generalized self-consistent thermal model.
     """
     solid_fraction = 1.0 - porosity
     fractions = [solid_fraction, porosity]
@@ -46,6 +57,15 @@ def thermal_conductivity(
             values,
             [1.0, microstructure.aspect_ratio],
         )
+
+    if model_name == "sca":
+        return sca_effective_conductivity(
+            matrix_value,
+            fluid_value,
+            porosity,
+            aspect_ratio=microstructure.aspect_ratio,
+        )
+
     if model_name in {"likhteneker", "lichtenecker", "geometric"}:
         return Likhteneker(fractions, values)
     if model_name == "wiener_upper":

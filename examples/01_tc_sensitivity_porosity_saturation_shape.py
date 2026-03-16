@@ -134,7 +134,7 @@ def main() -> None:
                         varied_sample,
                         saturation,
                         # model="gsa",
-                        model="maxwell",
+                        model="sca",
                     )
                 )
 
