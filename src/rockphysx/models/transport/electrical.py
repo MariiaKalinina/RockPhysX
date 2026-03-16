@@ -3,7 +3,7 @@ from __future__ import annotations
 from rockphysx.core.parameters import MicrostructureParameters
 from rockphysx.models.emt.bounds import geometric_mean
 from rockphysx.models.emt.maxwell import maxwell_garnett_isotropic
-from rockphysx.models.emt.self_consistent import gsa_effective_property
+from rockphysx.models.emt.gsa_thermal import gsa_effective_property
 
 
 def electrical_conductivity(
