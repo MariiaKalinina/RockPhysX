@@ -1,32 +1,31 @@
 from __future__ import annotations
 
 """
-Differential effective medium (DEM) model for thermal conductivity.
+Two-phase isotropic DEM model for thermal conductivity.
 
 Source / attribution
 --------------------
-This implementation follows Appendix A ("Cross-Property DEM Modelling for
-Thermal Conductivity") of:
+This implementation follows Appendix A of:
 
-Cilli, P. A. and Chapman, M. (2020), preprint:
+Cilli, P. A. and Chapman, M. (2020), preprint
 "Linking elastic and electrical properties of rocks using cross-property DEM"
 
-Thermal DEM equations used here:
+Thermal DEM equations:
     dκ*/dφ = 3 κ* (κ2 - κ*) T(*2) / (1 - φ)
     T(*2) = (1/9) [ 4 / (κ* + κ2 + L(κ* - κ2))
                   + 1 / (κ* - L(κ* - κ2)) ]
-
-Boundary condition:
-    κ*(φ=0) = κ1
+with boundary condition:
+    κ*(φ = 0) = κ1
 
 Notes
 -----
-- This is a 2-phase isotropic DEM implementation.
-- κ1 is the background / host conductivity.
-- κ2 is the inclusion conductivity.
-- φ is the inclusion volume fraction.
-- For porous rocks, κ1 is typically the matrix conductivity,
-  κ2 the pore-fluid conductivity, and φ the porosity.
+- κ1 = background / matrix conductivity
+- κ2 = inclusion conductivity
+- φ  = inclusion volume fraction
+- L  = spheroidal depolarization factor from aspect ratio α
+
+This file intentionally implements the classical two-phase DEM only.
+The generalized multicomponent/backbone DEM is implemented separately.
 """
 
 import numpy as np
@@ -37,15 +36,7 @@ from rockphysx.utils.validation import ensure_fraction, ensure_positive
 
 def spheroidal_depolarization_factor(aspect_ratio: float) -> float:
     """
-    Return the principal depolarization factor L for a spheroid.
-
-    Parameters
-    ----------
-    aspect_ratio
-        Spheroidal aspect ratio alpha.
-        - alpha < 1 : oblate / disk-like
-        - alpha = 1 : sphere
-        - alpha > 1 : prolate / needle-like
+    Principal depolarization factor L for a spheroid.
     """
     alpha = ensure_positive(aspect_ratio, "aspect_ratio")
 
@@ -75,11 +66,7 @@ def dem_thermal_geometric_function(
     aspect_ratio: float,
 ) -> float:
     """
-    Geometric function T(*2) for isotropic spheroidal inclusions.
-
-    Implements the Appendix-A expression:
-        T(*2) = (1/9) [ 4 / (κ* + κ2 + L(κ* - κ2))
-                      + 1 / (κ* - L(κ* - κ2)) ]
+    Geometric function T(*2) used in the two-phase thermal DEM equation.
     """
     k_eff = ensure_positive(kappa_eff, "kappa_eff")
     k2 = ensure_positive(kappa_inclusion, "kappa_inclusion")
@@ -98,13 +85,8 @@ def dem_thermal_rhs(
     aspect_ratio: float,
 ) -> float:
     """
-    Right-hand side of the thermal DEM ODE.
-
-    dκ*/dφ = 3 κ* (κ2 - κ*) T(*2) / (1 - φ)
+    Right-hand side of the two-phase thermal DEM ODE.
     """
-    if phi >= 1.0:
-        raise ValueError("phi must stay below 1 in DEM integration.")
-
     T_star2 = dem_thermal_geometric_function(
         kappa_eff=kappa_eff,
         kappa_inclusion=kappa_inclusion,
@@ -122,7 +104,7 @@ def dem_thermal_conductivity(
     n_steps: int = 400,
 ) -> float:
     """
-    Solve the 2-phase isotropic thermal DEM model.
+    Solve the classical 2-phase isotropic DEM model for thermal conductivity.
 
     Parameters
     ----------
@@ -133,19 +115,14 @@ def dem_thermal_conductivity(
     inclusion_fraction
         Inclusion volume fraction φ.
     aspect_ratio
-        Spheroidal inclusion aspect ratio.
+        Spheroidal inclusion aspect ratio α.
     n_steps
-        Integration resolution.
+        Resolution for numerical integration.
 
     Returns
     -------
     float
         Effective thermal conductivity κ*(φ).
-
-    Notes
-    -----
-    Boundary condition:
-        κ*(φ=0) = κ1
     """
     k1 = ensure_positive(matrix_conductivity, "matrix_conductivity")
     k2 = ensure_positive(inclusion_conductivity, "inclusion_conductivity")
@@ -154,7 +131,6 @@ def dem_thermal_conductivity(
     if np.isclose(phi_target, 0.0):
         return float(k1)
 
-    # Avoid the singular point exactly at phi = 1
     phi_target = min(phi_target, 1.0 - 1e-8)
 
     sol = solve_ivp(
@@ -175,10 +151,24 @@ def dem_thermal_conductivity(
     )
 
     if not sol.success:
-        raise RuntimeError(f"DEM thermal conductivity integration failed: {sol.message}")
+        raise RuntimeError(f"DEM integration failed: {sol.message}")
 
     value = float(sol.y[0, -1])
     if not np.isfinite(value) or value <= 0.0:
-        raise RuntimeError("DEM thermal conductivity solver returned a non-physical value.")
+        raise RuntimeError("DEM solver returned a non-physical value.")
 
     return value
+
+"""
+Example usage:
+
+from rockphysx.models.emt.dem_thermal import dem_thermal_conductivity
+
+k_dem = dem_thermal_conductivity(
+    matrix_conductivity=3.0,
+    inclusion_conductivity=0.13,
+    inclusion_fraction=0.25,
+    aspect_ratio=0.1,
+)
+
+"""

@@ -12,6 +12,8 @@ from rockphysx.models.emt.bounds import (
 )
 from rockphysx.models.emt.gsa_thermal import gsa_effective_property
 from rockphysx.models.emt.sca_thermal import sca_effective_conductivity
+from rockphysx.models.emt.dem_thermal import dem_thermal_conductivity
+from rockphysx.models.emt.gdem_thermal import generalized_dem_thermal_conductivity
 
 
 def thermal_conductivity(
@@ -64,6 +66,24 @@ def thermal_conductivity(
             fluid_value,
             porosity,
             aspect_ratio=microstructure.aspect_ratio,
+        )
+    
+    if model_name == "dem":
+        return dem_thermal_conductivity(
+            matrix_value,
+            fluid_value,
+            porosity,
+            aspect_ratio=microstructure.aspect_ratio,
+        )
+
+    if model_name == "gdem":
+        # For the current forward solver this reduces to a 2-phase backbone case.
+        # Full multiphase use should call generalized_dem_thermal_conductivity directly.
+        return generalized_dem_thermal_conductivity(
+            volume_fractions=[1.0 - porosity, porosity],
+            thermal_conductivities=[matrix_value, fluid_value],
+            aspect_ratios=[1.0, microstructure.aspect_ratio],
+            backbone_index=0,
         )
 
     if model_name in {"likhteneker", "lichtenecker", "geometric"}:

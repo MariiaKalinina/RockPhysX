@@ -20,8 +20,7 @@ from rockphysx.models.emt.sca_thermal import sca_effective_conductivity
 from rockphysx.models.emt.bruggeman import bruggeman_isotropic
 from rockphysx.models.emt.maxwell import maxwell_garnett_isotropic
 from rockphysx.models.emt.dem_thermal import dem_thermal_conductivity
-
-
+from rockphysx.models.emt.gdem_thermal import generalized_dem_thermal_conductivity
 
 def safe_run(func, *args, **kwargs) -> Optional[float]:
     try:
@@ -167,6 +166,7 @@ def run_porosity_vs_tc_plot() -> None:
         "Bruggeman": [],
         "Maxwell": [],
         "DEM": [],
+        "GDEM": [],
     }
 
     alpha_i = [1.0, 0.1]
@@ -200,6 +200,7 @@ def run_porosity_vs_tc_plot() -> None:
                 lambda_void,
                 phi_void,
             ))
+        
         results["DEM"].append(
             safe_run(
                 dem_thermal_conductivity,
@@ -207,6 +208,16 @@ def run_porosity_vs_tc_plot() -> None:
                 lambda_void,
                 phi_void,
                 aspect_ratio=alpha_i[1],
+            )
+        )
+
+        results["GDEM"].append(
+            safe_run(
+                generalized_dem_thermal_conductivity,
+                [1.0 - phi_void, phi_void],
+                [lambda_matrix, lambda_void],
+                [1.0, alpha_i[1]],
+                backbone_index=0,
             )
         )
                 
@@ -232,7 +243,8 @@ def run_porosity_vs_tc_plot() -> None:
         "GSA": ("tab:red", "-", "GSA"),
         "Bruggeman": ("tab:green", "-", "Bruggeman EMA"),
         "Maxwell": ("tab:orange", "-", "Maxwell-Garnett"),
-        "DEM": ("tab:pink", "-", "DEM"),
+        "DEM": ("tab:pink", "-", "DEM (2-phase)"),
+        "GDEM": ("tab:cyan", "-", "GDEM (backbone)"),
     }
 
     for key, (color, ls, label) in styles.items():
