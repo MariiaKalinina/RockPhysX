@@ -28,8 +28,8 @@ from rockphysx.core.saturation import SaturationState
 # from rockphysx.models.emt.bruggeman import bruggeman_isotropic
 
 # MODEL = "gsa"
+# MODEL = "sca"
 MODEL = "sca"
-# MODEL = "bruggeman"
 EPSILON = 0.01
 
 
@@ -60,7 +60,7 @@ def build_representative_sample() -> SampleDescription:
 
     return SampleDescription(
         name="timan_pechora_representative",
-        porosity=0.25,
+        porosity=0.105,
         minerals=[calcite],
         fluids={
             SaturationState.DRY: FluidPhase.air(),
