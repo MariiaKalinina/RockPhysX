@@ -1,6 +1,6 @@
-# thesis-rp
+# RockPhysX
 
-`thesis-rp` is a dissertation-oriented Python package for forward modeling, inverse calibration, and cross-property prediction of sedimentary rocks. The repository is structured around the workflow logic of the dissertation:
+`RockPhysX` is a Python package for forward modeling, inverse calibration, and cross-property prediction of sedimentary rocks. The repository is structured around the workflow logic of the dissertation:
 
 **models -> forward problem -> inverse problem -> cross-property prediction**
 
