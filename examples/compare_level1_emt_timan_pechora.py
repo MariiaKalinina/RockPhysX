@@ -51,17 +51,17 @@ from rockphysx.forward.solver import ForwardSolver
 from rockphysx.models.emt.bruggeman import bruggeman_isotropic
 
 
-DEFAULT_MATRIX_TC = 3.00
+DEFAULT_MATRIX_TC = 2.98
 DEFAULT_AIR_TC = 0.025
 DEFAULT_OIL_TC = 0.13
-DEFAULT_BRINE60_TC = 0.60
+DEFAULT_brine_avg_TC = 0.60
 DEFAULT_ALPHA_BOUNDS = (1e-4, 1.0)
 DEFAULT_SHEET = "All properties_data"
 
 STATE_ORDER = [
     ("dry", SaturationState.DRY, "TC air", DEFAULT_AIR_TC),
     ("oil", SaturationState.OIL, "TC oil", DEFAULT_OIL_TC),
-    ("brine60", SaturationState.BRINE, "TC 60", DEFAULT_BRINE60_TC),
+    ("brine_avg", SaturationState.BRINE, "TC 60", DEFAULT_brine_avg_TC),
 ]
 
 
@@ -73,7 +73,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--matrix-tc", type=float, default=DEFAULT_MATRIX_TC)
     parser.add_argument("--air-tc", type=float, default=DEFAULT_AIR_TC)
     parser.add_argument("--oil-tc", type=float, default=DEFAULT_OIL_TC)
-    parser.add_argument("--brine60-tc", type=float, default=DEFAULT_BRINE60_TC)
+    parser.add_argument("--brine_avg-tc", type=float, default=DEFAULT_brine_avg_TC)
     parser.add_argument("--alpha-min", type=float, default=DEFAULT_ALPHA_BOUNDS[0])
     parser.add_argument("--alpha-max", type=float, default=DEFAULT_ALPHA_BOUNDS[1])
     return parser.parse_args()
@@ -128,37 +128,73 @@ def build_sample(porosity_fraction: float, matrix_tc: float, alpha: float, *, ai
 
 def load_dataset(path: Path, sheet: str) -> pd.DataFrame:
     df = pd.read_excel(path, sheet_name=sheet)
-    required = ["Sample", "Porosity,%", "TC air", "TC oil", "TC 60"]
+
+    brine_cols = ["TC 0,6", "TC 6", "TC 60", "TC 180"]
+    required = ["Sample", "Porosity,%", "TC air", "TC oil"] + brine_cols
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise KeyError(f"Missing required columns: {missing}")
 
     out = df[required].copy()
-    out = out.rename(columns={"Porosity,%": "porosity_pct", "TC air": "tc_air", "TC oil": "tc_oil", "TC 60": "tc_60"})
-    out = out.dropna(subset=["Sample", "porosity_pct", "tc_air", "tc_oil", "tc_60"])
+
+    # Среднее по всем доступным brine-состояниям для каждого образца
+    out["tc_brine_avg"] = out[brine_cols].mean(axis=1, skipna=True)
+
+    out = out.rename(
+        columns={
+            "Porosity,%": "porosity_pct",
+            "TC air": "tc_air",
+            "TC oil": "tc_oil",
+        }
+    )
+
+    out = out.dropna(subset=["Sample", "porosity_pct", "tc_air", "tc_oil", "tc_brine_avg"])
     out["porosity"] = out["porosity_pct"] / 100.0
     out = out[(out["porosity"] > 0.0) & (out["porosity"] < 1.0)]
-    out = out[(out[["tc_air", "tc_oil", "tc_60"]] > 0.0).all(axis=1)]
+    out = out[(out[["tc_air", "tc_oil", "tc_brine_avg"]] > 0.0).all(axis=1)]
     out = out.reset_index(drop=True)
+
+    print(f"Mean brine TC across all salinities and all samples: {out['tc_brine_avg'].mean():.4f} W m^-1 K^-1")
     return out
 
 
 
+# def predict_three_states(sample: SampleDescription, model: str, solver: ForwardSolver) -> dict[str, float]:
+#     return {
+#         "dry": float(solver.predict("thermal_conductivity", sample, SaturationState.DRY, model=model)),
+#         "oil": float(solver.predict("thermal_conductivity", sample, SaturationState.OIL, model=model)),
+#         "brine_avg": float(solver.predict("thermal_conductivity", sample, SaturationState.BRINE, model=model)),
+#     }
 def predict_three_states(sample: SampleDescription, model: str, solver: ForwardSolver) -> dict[str, float]:
     return {
         "dry": float(solver.predict("thermal_conductivity", sample, SaturationState.DRY, model=model)),
         "oil": float(solver.predict("thermal_conductivity", sample, SaturationState.OIL, model=model)),
-        "brine60": float(solver.predict("thermal_conductivity", sample, SaturationState.BRINE, model=model)),
+        "brine_avg": float(solver.predict("thermal_conductivity", sample, SaturationState.BRINE, model=model)),
     }
 
 
 
-def predict_three_states_bruggeman(porosity: float, matrix_tc: float, *, air_tc: float, oil_tc: float, brine_tc: float) -> dict[str, float]:
+# def predict_three_states_bruggeman(porosity: float, matrix_tc: float, *, air_tc: float, oil_tc: float, brine_tc: float) -> dict[str, float]:
+#     solid = 1.0 - porosity
+#     return {
+#         "dry": float(bruggeman_isotropic([solid, porosity], [matrix_tc, air_tc])),
+#         "oil": float(bruggeman_isotropic([solid, porosity], [matrix_tc, oil_tc])),
+#         "brine_avg": float(bruggeman_isotropic([solid, porosity], [matrix_tc, brine_tc])),
+#     }
+
+def predict_three_states_bruggeman(
+    porosity: float,
+    matrix_tc: float,
+    *,
+    air_tc: float,
+    oil_tc: float,
+    brine_tc: float,
+) -> dict[str, float]:
     solid = 1.0 - porosity
     return {
         "dry": float(bruggeman_isotropic([solid, porosity], [matrix_tc, air_tc])),
         "oil": float(bruggeman_isotropic([solid, porosity], [matrix_tc, oil_tc])),
-        "brine60": float(bruggeman_isotropic([solid, porosity], [matrix_tc, brine_tc])),
+        "brine_avg": float(bruggeman_isotropic([solid, porosity], [matrix_tc, brine_tc])),
     }
 
 
@@ -223,7 +259,7 @@ def fit_alpha_for_sample(
 
 def evaluate_models(df: pd.DataFrame, *, matrix_tc: float, air_tc: float, oil_tc: float, brine_tc: float, alpha_min: float, alpha_max: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     solver = ForwardSolver()
-    weights = {"dry": 1.0, "oil": 1.0, "brine60": 1.0}
+    weights = {"dry": 1.0, "oil": 1.0, "brine_avg": 1.0}
 
     sample_rows: list[dict[str, object]] = []
     point_rows: list[dict[str, object]] = []
@@ -231,11 +267,16 @@ def evaluate_models(df: pd.DataFrame, *, matrix_tc: float, air_tc: float, oil_tc
     for _, row in df.iterrows():
         sample_id = row["Sample"]
         porosity = float(row["porosity"])
+        # measured = {
+        #     "dry": float(row["tc_air"]),
+        #     "oil": float(row["tc_oil"]),
+        #     "brine_avg": float(row["tc_60"]),
+        # }
         measured = {
             "dry": float(row["tc_air"]),
             "oil": float(row["tc_oil"]),
-            "brine60": float(row["tc_60"]),
-        }
+            "brine_avg": float(row["tc_brine_avg"]),
+}
 
         # GSA / SCA: fit one alpha across all three states
         for model in ("gsa", "sca"):
@@ -261,7 +302,7 @@ def evaluate_models(df: pd.DataFrame, *, matrix_tc: float, air_tc: float, oil_tc
                     "objective_L1": objective_value,
                 }
             )
-            for state in ("dry", "oil", "brine60"):
+            for state in ("dry", "oil", "brine_avg"):
                 point_rows.append(
                     {
                         "sample": sample_id,
@@ -285,7 +326,7 @@ def evaluate_models(df: pd.DataFrame, *, matrix_tc: float, air_tc: float, oil_tc
                 "objective_L1": sum(abs(predicted_br[s] - measured[s]) for s in measured),
             }
         )
-        for state in ("dry", "oil", "brine60"):
+        for state in ("dry", "oil", "brine_avg"):
             point_rows.append(
                 {
                     "sample": sample_id,
@@ -344,6 +385,28 @@ def by_state_summary(points: pd.DataFrame) -> pd.DataFrame:
         )
     return pd.DataFrame(rows)
 
+def alpha_fit_summary(per_sample: pd.DataFrame) -> pd.DataFrame:
+    alpha_df = per_sample.loc[per_sample["alpha_fit"].notna()].copy()
+
+    rows = []
+    for model, grp in alpha_df.groupby("model", sort=False):
+        values = grp["alpha_fit"].to_numpy(dtype=float)
+        rows.append(
+            {
+                "model": model,
+                "n": int(len(values)),
+                "AR_min": float(np.min(values)),
+                "AR_mean": float(np.mean(values)),
+                "AR_median": float(np.median(values)),
+                "AR_max": float(np.max(values)),
+                "AR_p2.5": float(np.percentile(values, 2.5)),
+                "AR_p97.5": float(np.percentile(values, 97.5)),
+                "w95(AR)": float(np.percentile(values, 97.5) - np.percentile(values, 2.5)),
+            }
+        )
+
+    return pd.DataFrame(rows)
+
 
 
 def format_markdown_table(summary: pd.DataFrame) -> str:
@@ -364,20 +427,24 @@ def main() -> None:
         matrix_tc=args.matrix_tc,
         air_tc=args.air_tc,
         oil_tc=args.oil_tc,
-        brine_tc=args.brine60_tc,
+        brine_tc=args.brine_avg_tc,
         alpha_min=args.alpha_min,
         alpha_max=args.alpha_max,
     )
     state_table = by_state_summary(points)
+    alpha_table = alpha_fit_summary(per_sample)
 
     summary_csv = args.outdir / "table12_level1_emt_comparison.csv"
     sample_csv = args.outdir / "table12_per_sample_alpha_fits.csv"
     points_csv = args.outdir / "table12_point_errors.csv"
     state_csv = args.outdir / "table12_by_state.csv"
+    alpha_csv = args.outdir / "table12_alpha_summary.csv"
+
     summary.to_csv(summary_csv, index=False)
     per_sample.to_csv(sample_csv, index=False)
     points.to_csv(points_csv, index=False)
     state_table.to_csv(state_csv, index=False)
+    alpha_table.to_csv(alpha_csv, index=False)
 
     xlsx_path = args.outdir / "table12_level1_emt_comparison.xlsx"
     with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
@@ -385,6 +452,7 @@ def main() -> None:
         per_sample.to_excel(writer, sheet_name="AR_Fits", index=False)
         points.to_excel(writer, sheet_name="Point_Errors", index=False)
         state_table.to_excel(writer, sheet_name="By_State", index=False)
+        alpha_table.to_excel(writer, sheet_name="Alpha_Summary", index=False)
 
     md_path = args.outdir / "table12_level1_emt_comparison.md"
     notes = (
@@ -393,10 +461,18 @@ def main() -> None:
         "w95(AR) = AR97.5 − AR2.5. Bruggeman has no aspect-ratio parameter in the current implementation, "
         "so w95(AR) is reported as n/a.\n"
     )
-    md_text = "Table 12 — Comparison of Level-1 EMT schemes for thermal-conductivity prediction in Timan–Pechora carbonates\n\n" + format_markdown_table(summary) + "\n\n" + notes
+    md_text = (
+        "Table 12 — Comparison of Level-1 EMT schemes for thermal-conductivity prediction "
+        "in Timan–Pechora carbonates\n\n"
+        + format_markdown_table(summary)
+        + "\n\n"
+        + notes
+    )
     md_path.write_text(md_text, encoding="utf-8")
 
     print(md_text)
+    print("\nAspect-ratio summary by model:\n")
+    print(alpha_table.to_string(index=False, float_format=lambda x: f"{x:.6f}"))
     print(f"\nSaved outputs to: {args.outdir}")
 
 
