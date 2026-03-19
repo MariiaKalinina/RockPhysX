@@ -1,0 +1,12 @@
+sample = saurashtra_reference
+phi_total = 0.180000
+phi_pore_abs = 0.177000
+phi_mc_abs = 0.003000
+matrix_tc = 4.500000
+alpha_pore = 0.100000
+alpha_mc = 1.000000e-04
+ic_phase_tc = 0.025000
+predicted_tc:
+  dry: 2.417678
+  oil: 2.533378
+  brine: 2.885065

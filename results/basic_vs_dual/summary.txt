@@ -1,0 +1,26 @@
+Forward comparison of basic vs dual-porosity sandstone models
+
+Basic model:
+  matrix + total void space
+  alpha_basic = 0.5
+
+Dual model:
+  matrix + intergranular pores + IC microcracks (embedded together)
+  alpha_pore = 0.5
+  alpha_mc = 0.0001
+  phi_mc_abs = 0.0025
+  ic_phase_tc = 0.025 W m^-1 K^-1
+
+Shared properties:
+  matrix_tc = 5 W m^-1 K^-1
+  air_tc = 0.025 W m^-1 K^-1
+  oil_tc = 0.13 W m^-1 K^-1
+  brine_tc = 0.6 W m^-1 K^-1
+  comparison_body = matrix
+
+Porosity sweep:
+  phi_total in [0.01, 0.3] with n = 101
+
+Interpretation:
+  The plots show how much the extra IC microcrack subdomain changes the forward thermal-conductivity prediction.
+  They do not show which model is closer to experiment.

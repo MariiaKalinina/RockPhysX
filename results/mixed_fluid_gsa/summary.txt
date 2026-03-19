@@ -1,0 +1,12 @@
+Mixed-fluid GSA atlas parameters
+===============================
+matrix_tc = 3.0
+air_tc = 0.025
+oil_tc = 0.13
+brine_tc = 0.6
+porosity_alphas = [0.01, 0.1, 1.0]
+phi_max = 0.25
+phi_fixed = [0.015, 0.105, 0.245]
+alpha_range = [0.01, 1.0]
+comparison_body = matrix
+mixture_rule = Lichtenecker geometric mixing

@@ -49,6 +49,7 @@ from rockphysx.core.sample import SampleDescription
 from rockphysx.core.saturation import SaturationState
 from rockphysx.forward.solver import ForwardSolver
 from rockphysx.models.emt.bruggeman import bruggeman_isotropic
+from rockphysx.models.emt.gsa_transport import two_phase_thermal_isotropic
 
 
 DEFAULT_MATRIX_TC = 2.98
@@ -150,6 +151,7 @@ def load_dataset(path: Path, sheet: str) -> pd.DataFrame:
 
     out = out.dropna(subset=["Sample", "porosity_pct", "tc_air", "tc_oil", "tc_brine_avg"])
     out["porosity"] = out["porosity_pct"] / 100.0
+    out = out[~np.isclose(out["porosity"], 0.091603304119034, rtol=0.0, atol=1e-12)] # exclude one sample with very porosity = 9.6% that is likely a data error
     out = out[(out["porosity"] > 0.0) & (out["porosity"] < 1.0)]
     out = out[(out[["tc_air", "tc_oil", "tc_brine_avg"]] > 0.0).all(axis=1)]
     out = out.reset_index(drop=True)
@@ -165,12 +167,12 @@ def load_dataset(path: Path, sheet: str) -> pd.DataFrame:
 #         "oil": float(solver.predict("thermal_conductivity", sample, SaturationState.OIL, model=model)),
 #         "brine_avg": float(solver.predict("thermal_conductivity", sample, SaturationState.BRINE, model=model)),
 #     }
-def predict_three_states(sample: SampleDescription, model: str, solver: ForwardSolver) -> dict[str, float]:
-    return {
-        "dry": float(solver.predict("thermal_conductivity", sample, SaturationState.DRY, model=model)),
-        "oil": float(solver.predict("thermal_conductivity", sample, SaturationState.OIL, model=model)),
-        "brine_avg": float(solver.predict("thermal_conductivity", sample, SaturationState.BRINE, model=model)),
-    }
+# def predict_three_states(sample: SampleDescription, model: str, solver: ForwardSolver) -> dict[str, float]:
+#     return {
+#         "dry": float(solver.predict("thermal_conductivity", sample, SaturationState.DRY, model=model)),
+#         "oil": float(solver.predict("thermal_conductivity", sample, SaturationState.OIL, model=model)),
+#         "brine_avg": float(solver.predict("thermal_conductivity", sample, SaturationState.BRINE, model=model)),
+#     }
 
 
 
@@ -181,6 +183,46 @@ def predict_three_states(sample: SampleDescription, model: str, solver: ForwardS
 #         "oil": float(bruggeman_isotropic([solid, porosity], [matrix_tc, oil_tc])),
 #         "brine_avg": float(bruggeman_isotropic([solid, porosity], [matrix_tc, brine_tc])),
 #     }
+
+def predict_three_states(sample: SampleDescription, model: str, solver: ForwardSolver) -> dict[str, float]:
+    model_name = model.lower()
+
+    if model_name == "gsa":
+        porosity = float(sample.porosity)
+        matrix_tc = float(sample.matrix.thermal_conductivity_wmk)
+        alpha = float(sample.microstructure.aspect_ratio)
+        return {
+            "dry": float(
+                two_phase_thermal_isotropic(
+                    matrix_value=matrix_tc,
+                    inclusion_value=float(sample.fluids[SaturationState.DRY].thermal_conductivity_wmk),
+                    porosity=porosity,
+                    aspect_ratio=alpha,
+                )
+            ),
+            "oil": float(
+                two_phase_thermal_isotropic(
+                    matrix_value=matrix_tc,
+                    inclusion_value=float(sample.fluids[SaturationState.OIL].thermal_conductivity_wmk),
+                    porosity=porosity,
+                    aspect_ratio=alpha,
+                )
+            ),
+            "brine_avg": float(
+                two_phase_thermal_isotropic(
+                    matrix_value=matrix_tc,
+                    inclusion_value=float(sample.fluids[SaturationState.BRINE].thermal_conductivity_wmk),
+                    porosity=porosity,
+                    aspect_ratio=alpha,
+                )
+            ),
+        }
+
+    return {
+        "dry": float(solver.predict("thermal_conductivity", sample, SaturationState.DRY, model=model_name)),
+        "oil": float(solver.predict("thermal_conductivity", sample, SaturationState.OIL, model=model_name)),
+        "brine_avg": float(solver.predict("thermal_conductivity", sample, SaturationState.BRINE, model=model_name)),
+    }
 
 def predict_three_states_bruggeman(
     porosity: float,

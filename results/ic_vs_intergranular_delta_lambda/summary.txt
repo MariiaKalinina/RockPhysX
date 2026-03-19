@@ -1,0 +1,12 @@
+2D relative-difference map between the basic and dual-porosity EMT models.
+matrix_tc = 5.0
+alpha_pore = 0.15
+alpha_basic = 0.15
+alpha_mc = 0.0001
+ic_phase_tc = 0.025
+comparison = matrix
+phi_intergranular range = [0.03, 0.25]
+phi_ic range = [0.0, 0.01]
+Color = 100 * (lambda_dual - lambda_basic) / lambda_basic, in percent.
+Basic model uses total porosity = phi_intergranular + phi_ic as a single void phase.
+Dual model mixes matrix, intergranular pores, and IC microcracks in one GSA step.
