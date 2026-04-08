@@ -336,7 +336,7 @@ def main() -> None:
     outdir = Path("figures/thermal")
     outdir.mkdir(parents=True, exist_ok=True)
     fig.savefig(outdir / "08_timan_pechora_sensitivity_atlas.png", dpi=300, bbox_inches="tight")
-    fig.savefig(outdir / "08_timan_pechora_sensitivity_atlas.pdf", bbox_inches="tight")
+    fig.savefig(outdir / "08_timan_pechora_sensitivity_atlas.png", bbox_inches="tight")
     plt.show()
 
 

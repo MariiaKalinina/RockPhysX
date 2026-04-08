@@ -24,7 +24,7 @@ def save_figure(fig: plt.Figure, stem: str) -> None:
     outdir.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
     fig.savefig(outdir / f"{stem}.png", dpi=300, bbox_inches="tight")
-    fig.savefig(outdir / f"{stem}.pdf", bbox_inches="tight")
+    fig.savefig(outdir / f"{stem}.png", bbox_inches="tight")
 
 
 def build_sandstone_sample(porosity: float = 0.18) -> SampleDescription:

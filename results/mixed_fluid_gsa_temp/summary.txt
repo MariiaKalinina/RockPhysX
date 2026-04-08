@@ -1,18 +1,13 @@
-Mixed-fluid GSA atlas with temperature-dependent phases
-=================================================
-matrix_lambda20 = 3.0
-air_tc_isothermal = 0.025
-oil_tc_isothermal = 0.13
-brine_tc_isothermal = 0.6
+Mixed-fluid GSA atlas parameters (temperature-aware version)
+===================================================
+matrix_tc20 = 3.0
 porosity_alphas = [0.01, 0.1, 1.0]
 phi_max = 0.25
-phi_fixed_error = [0.015, 0.105, 0.245]
+phi_fixed = [0.015, 0.105, 0.245]
 alpha_range = [0.01, 1.0]
-temperature_range_C = [20.0, 200.0]
-temperature_phi = 0.105
-temperature_sats = [0.0, 0.5, 1.0]
-strict_book_water_kelvin = False
-comparison_body = matrix
-mixture_rule = Lichtenecker / geometrical average
-matrix_temperature_model = Sekiguchi-Waples Eq. (3.10)
-fluid_temperature_model = book Eqs. (3.14), (3.15)
+atlas_temperatures_C = [20.0, 50.0, 100.0]
+T_range_components_C = [20.0, 130.0]
+water_model = Eq. 3.14 low-temperature branch only (restricted to <=130 C)
+matrix_model = Sekiguchi-Waples Eq. 3.10
+fluid_mix_rule = Lichtenecker geometric mixing
+relchange_reference = lambda*(20 C)

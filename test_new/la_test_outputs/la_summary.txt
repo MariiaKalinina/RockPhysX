@@ -1,0 +1,16 @@
+LA unified relation summary
+==================================================
+Best matrix conductivity lambda_m = 2.924000 W/(m K)
+
+Unified relation:
+f(alpha, lambda_f) = 0.738684 + -0.629326*alpha + 0.375793*lambda_f + 1.876222*(alpha*lambda_f)
+
+Dry line   : f_dry(alpha)   = -0.582421*alpha + 0.748078
+Brine line : f_brine(alpha) = 0.496407*alpha + 0.964159
+
+Model comparison:
+                        model  RMSE_all  RMSE_dry  RMSE_brine  MAE_all  MAE_dry  MAE_brine   R2_all    R2_dry  R2_brine
+ A: simple Lichtenecker (f=1)  0.244469  0.341153    0.056083 0.188888 0.334397   0.043378 0.338277 -2.846733  0.737523
+              B: fixed mean f  0.176597  0.122505    0.217636 0.151123 0.095544   0.206702 0.654702  0.503976 -2.952706
+     C: old transfer relation  0.105563  0.128877    0.075352 0.079528 0.105371   0.053686 0.876618  0.451035  0.526167
+D: unified f(alpha, lambda_f)  0.065786  0.074495    0.055732 0.053285 0.064253   0.042317 0.952082  0.816578  0.740793

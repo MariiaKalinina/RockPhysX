@@ -34,7 +34,7 @@ from typing import Iterable, Sequence
 
 import numpy as np
 
-from rockphysx.utils.validation import ensure_fraction, ensure_positive
+from rockphysx.utils.validation import ensure_fraction, ensure_positive, normalize_fractions
 
 
 # ---------------------------------------------------------------------
@@ -235,9 +235,9 @@ def sca_effective_conductivity(
     delta = lambda_i - lambda_m
     denominator = 1.0 - vi * r_mi * delta
 
-    if np.isclose(denominator, 0.0, atol=1e-12):
+    if denominator <= 0.0 or np.isclose(denominator, 0.0, atol=1e-12):
         raise ValueError(
-            "The SCA/random-inclusion denominator is too close to zero. "
+            "The SCA/random-inclusion denominator is non-positive or too close to zero. "
             "Check the conductivity contrast and inclusion fraction."
         )
 
@@ -265,4 +265,156 @@ def sca_effective_conductivity_by_shape(
         inclusion_conductivity,
         inclusion_fraction,
         depolarization_factors=depolarization_triplet_from_shape(shape),
+    )
+
+
+# ---------------------------------------------------------------------
+# Self-consistent transport (Torquato-style)
+# ---------------------------------------------------------------------
+
+def _field_concentration_factor_torquato(
+    eps_m: float,
+    eps_i: float,
+    depolarization_factors: Sequence[float],
+) -> float:
+    """
+    Torquato (2002) field concentration factor R^{mi}.
+
+        R^{mi} = (eps_m/3) * sum_{j=a,b,c} 1 / (eps_m + L_j (eps_i - eps_m))
+    """
+    eps_m = ensure_positive(eps_m, "eps_m")
+    eps_i = ensure_positive(eps_i, "eps_i", allow_zero=True)
+
+    L = np.asarray(list(depolarization_factors), dtype=float)
+    if L.shape != (3,):
+        raise ValueError("depolarization_factors must contain exactly three values.")
+    if np.any(L < 0.0) or np.any(L > 1.0):
+        raise ValueError("Each depolarization factor must lie in [0, 1].")
+    if not np.isclose(np.sum(L), 1.0, atol=1e-8):
+        raise ValueError("Depolarization factors must sum to 1.")
+
+    denom = eps_m + L * (eps_i - eps_m)  # = eps_m*(1-L) + L*eps_i
+    denom = np.maximum(denom, 1e-30)
+    return float((eps_m / 3.0) * np.sum(1.0 / denom))
+
+
+def sca_self_consistent_effective_conductivity(
+    volume_fractions: Sequence[float],
+    conductivities: Sequence[float],
+    *,
+    depolarization_factors_list: Sequence[Sequence[float]],
+    tol: float = 1e-12,
+    max_iter: int = 200,
+) -> float:
+    """
+    Self-consistent (SC) effective conductivity for randomly oriented ellipsoids.
+
+    This solves the implicit Torquato (2002) SC equation:
+
+        sum_i f_i (eps_i - eps_sc) R_i^*(eps_sc) = 0
+
+    where the star indicates eps_m -> eps_sc in the concentration factor.
+    """
+    f = normalize_fractions(volume_fractions)
+    eps = np.asarray(list(conductivities), dtype=float)
+    if eps.shape != f.shape:
+        raise ValueError("volume_fractions and conductivities must have the same length.")
+    if np.any(~np.isfinite(eps)) or np.any(eps < 0.0):
+        raise ValueError("conductivities must be finite and non-negative.")
+    if len(depolarization_factors_list) != len(f):
+        raise ValueError("depolarization_factors_list must have the same length as phases.")
+
+    eps_min = float(np.min(eps))
+    eps_max = float(np.max(eps))
+    if eps_max <= 0.0:
+        return 0.0
+
+    def F(x: float) -> float:
+        x = float(x)
+        if x <= 0.0 or not np.isfinite(x):
+            return float("nan")
+        s = 0.0
+        for fi, ei, L in zip(f, eps, depolarization_factors_list, strict=True):
+            Ri = _field_concentration_factor_torquato(x, float(ei), L)
+            s += float(fi) * (float(ei) - x) * Ri
+        return float(s)
+
+    # Prefer bracketing inside [min, max] when possible.
+    a = max(eps_min, 1e-30)
+    b = max(eps_max, a * 10.0)
+    fa = F(a)
+    fb = F(b)
+
+    # Expand bracket if needed (log space).
+    for _ in range(80):
+        if np.isfinite(fa) and np.isfinite(fb) and (fa == 0.0 or fb == 0.0 or (fa > 0) != (fb > 0)):
+            break
+        # If signs are equal or NaN, expand outward.
+        a = max(a / 10.0, 1e-30)
+        b = b * 10.0
+        fa = F(a)
+        fb = F(b)
+    else:
+        raise RuntimeError("Could not bracket SC conductivity root; check phase conductivities and shapes.")
+
+    if fa == 0.0:
+        return float(a)
+    if fb == 0.0:
+        return float(b)
+
+    lo, hi = float(a), float(b)
+    flo, fhi = float(fa), float(fb)
+    if (flo > 0) == (fhi > 0):
+        raise RuntimeError("Could not bracket SC conductivity root; check phase conductivities and shapes.")
+
+    for _ in range(int(max_iter)):
+        mid = 0.5 * (lo + hi)
+        fmid = F(mid)
+        if not np.isfinite(fmid):
+            mid = np.nextafter(mid, hi)
+            fmid = F(mid)
+        if abs(fmid) <= tol:
+            return float(mid)
+        if (flo > 0) == (fmid > 0):
+            lo, flo = mid, float(fmid)
+        else:
+            hi, fhi = mid, float(fmid)
+        if abs(hi - lo) <= tol * max(1.0, abs(mid)):
+            return float(0.5 * (lo + hi))
+
+    return float(0.5 * (lo + hi))
+
+
+def sca_sc_effective_conductivity(
+    matrix_conductivity: float,
+    inclusion_conductivity: float,
+    inclusion_fraction: float,
+    *,
+    aspect_ratio: float | None = None,
+    depolarization_factors: Sequence[float] | None = None,
+    tol: float = 1e-12,
+    max_iter: int = 200,
+) -> float:
+    """
+    Two-phase SC conductivity (Torquato 2002) for matrix + ellipsoidal inclusions.
+
+    Notes
+    -----
+    - Matrix phase is treated as spherical (L=1/3,1/3,1/3).
+    - Inclusion phase uses either ``depolarization_factors`` or ``aspect_ratio``.
+    """
+    eps_m = ensure_positive(matrix_conductivity, "matrix_conductivity", allow_zero=True)
+    eps_i = ensure_positive(inclusion_conductivity, "inclusion_conductivity", allow_zero=True)
+    vi = ensure_fraction(inclusion_fraction, "inclusion_fraction")
+
+    if depolarization_factors is None:
+        alpha = 1.0 if aspect_ratio is None else aspect_ratio
+        depolarization_factors = spheroidal_depolarization_triplet(alpha)
+
+    return sca_self_consistent_effective_conductivity(
+        [1.0 - vi, vi],
+        [eps_m, eps_i],
+        depolarization_factors_list=[(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0), depolarization_factors],
+        tol=tol,
+        max_iter=max_iter,
     )

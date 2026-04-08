@@ -380,8 +380,9 @@ def g_tensor_transport_numeric(
     shape: Shape,
     *,
     orientation_axis: ArrayLike = (0.0, 0.0, 1.0),
-    n_theta: int = 60,
-    n_phi: int = 120,
+    n_theta: int | None = None,
+    n_phi: int | None = None,
+    theta_quadrature: Literal["uniform", "gauss"] = "uniform",
 ) -> np.ndarray:
     """Numerical g-tensor for transport properties.
 
@@ -393,26 +394,68 @@ def g_tensor_transport_numeric(
     a1, a2, a3 = shape.semi_axes
     R = rotation_from_z(orientation_axis)
 
-    theta_vals = np.linspace(0.0, pi, n_theta)
-    phi_vals = np.linspace(0.0, 2.0 * pi, n_phi, endpoint=False)
-    dtheta = theta_vals[1] - theta_vals[0] if n_theta > 1 else pi
-    dphi = 2.0 * pi / n_phi
+    def _recommend_quadrature(aspect_ratio: float) -> tuple[int, int]:
+        # Heuristic: resolution required grows with anisotropy of the inclusion shape.
+        # For crack-like spheroids (alpha << 1) the integrand becomes sharply peaked
+        # near the poles; similarly for needle-like (alpha >> 1) near the equator.
+        beta = max(float(aspect_ratio), 1.0 / float(aspect_ratio))
+        if beta <= 1.5:
+            return (60, 120)
+        if beta <= 10.0:
+            return (120, 240)
+        if beta <= 100.0:
+            return (240, 480)
+        return (400, 800)
+
+    if n_theta is None or n_phi is None:
+        rt, rp = _recommend_quadrature(shape.aspect_ratio)
+        n_theta = rt if n_theta is None else int(n_theta)
+        n_phi = rp if n_phi is None else int(n_phi)
+    else:
+        n_theta = int(n_theta)
+        n_phi = int(n_phi)
+
+    phi_vals = np.linspace(0.0, 2.0 * pi, int(n_phi), endpoint=False)
+    dphi = 2.0 * pi / float(n_phi)
 
     g = np.zeros((3, 3), dtype=float)
 
-    for theta in theta_vals:
-        st = sin(theta)
-        ct = cos(theta)
-        for phi in phi_vals:
-            cp = cos(phi)
-            sp = sin(phi)
-            # scaled direction in the local ellipsoid frame
-            m_local = np.array([st * cp / a1, st * sp / a2, ct / a3], dtype=float)
-            m = R @ m_local
-            A = float(m @ Tc @ m)
-            if A <= 0.0:
-                raise RuntimeError("Non-positive A encountered in g-tensor integration")
-            g += np.outer(m, m) / A * st * dtheta * dphi
+    if theta_quadrature not in {"uniform", "gauss"}:
+        raise ValueError("theta_quadrature must be 'uniform' or 'gauss'.")
+
+    if theta_quadrature == "uniform":
+        theta_vals = np.linspace(0.0, pi, int(n_theta))
+        dtheta = theta_vals[1] - theta_vals[0] if int(n_theta) > 1 else pi
+        for theta in theta_vals:
+            st = sin(theta)
+            ct = cos(theta)
+            for phi in phi_vals:
+                cp = cos(phi)
+                sp = sin(phi)
+                # scaled direction in the local ellipsoid frame
+                m_local = np.array([st * cp / a1, st * sp / a2, ct / a3], dtype=float)
+                m = R @ m_local
+                A = float(m @ Tc @ m)
+                if A <= 0.0:
+                    raise RuntimeError("Non-positive A encountered in g-tensor integration")
+                g += np.outer(m, m) / A * st * dtheta * dphi
+    else:
+        # Gauss-Legendre in u = cos(theta), u ∈ [-1, 1].
+        # sin(theta) dtheta = du, so the integral becomes:
+        #   g = (1/4π) ∫_{0..2π} ∫_{-1..1} (m m^T)/A du dφ
+        u, wu = np.polynomial.legendre.leggauss(int(n_theta))
+        for ui, wi in zip(u, wu, strict=True):
+            ct = float(ui)
+            st = float(np.sqrt(max(0.0, 1.0 - ct * ct)))
+            for phi in phi_vals:
+                cp = cos(phi)
+                sp = sin(phi)
+                m_local = np.array([st * cp / a1, st * sp / a2, ct / a3], dtype=float)
+                m = R @ m_local
+                A = float(m @ Tc @ m)
+                if A <= 0.0:
+                    raise RuntimeError("Non-positive A encountered in g-tensor integration")
+                g += np.outer(m, m) / A * float(wi) * dphi
 
     return g / (4.0 * pi)
 
@@ -423,8 +466,9 @@ def orientation_averaged_g_tensor(
     orientation: OrientationDistribution,
     *,
     n_orientation: int = 80,
-    n_theta: int = 60,
-    n_phi: int = 120,
+    n_theta: int | None = None,
+    n_phi: int | None = None,
+    theta_quadrature: Literal["uniform", "gauss"] = "uniform",
 ) -> np.ndarray:
     axes, weights = sample_orientation_axes(orientation, n_orientation)
     g_avg = np.zeros((3, 3), dtype=float)
@@ -435,6 +479,7 @@ def orientation_averaged_g_tensor(
             orientation_axis=axis,
             n_theta=n_theta,
             n_phi=n_phi,
+            theta_quadrature=theta_quadrature,
         )
         g_avg += float(w) * g_axis
     return g_avg
@@ -505,8 +550,9 @@ def homogenize_transport_gsa(
     max_iter: int = 200,
     tol: float = 1e-8,
     n_orientation: int = 80,
-    n_theta: int = 60,
-    n_phi: int = 120,
+    n_theta: int | None = None,
+    n_phi: int | None = None,
+    theta_quadrature: Literal["uniform", "gauss"] = "uniform",
     initial_effective: np.ndarray | None = None,
 ) -> np.ndarray:
     """General N-phase tensor GSA for transport properties.
@@ -535,6 +581,7 @@ def homogenize_transport_gsa(
                 n_orientation=n_orientation,
                 n_theta=n_theta,
                 n_phi=n_phi,
+                theta_quadrature=theta_quadrature,
             )
             A, M = phase_operators(phase.property_tensor, Tc, g)
             c = phase.volume_fraction
@@ -571,6 +618,10 @@ def gsa_transport_isotropic(
     phase_list = validate_phases(phases)
 
     if _all_phases_isotropic_random(phase_list):
+        # The isotropic-random scalar branch does not use angular/orientation
+        # quadrature parameters but callers may pass them for API uniformity.
+        allowed = {"max_iter", "tol", "initial_effective"}
+        kwargs = {k: v for k, v in kwargs.items() if k in allowed}
         return homogenize_transport_gsa_isotropic_random(
             phase_list,
             comparison_body,

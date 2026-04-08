@@ -4,6 +4,7 @@ from rockphysx.core.parameters import MicrostructureParameters
 from rockphysx.models.emt.bounds import geometric_mean
 from rockphysx.models.emt.maxwell import maxwell_garnett_isotropic
 from rockphysx.models.emt.gsa_thermal import gsa_effective_property
+from rockphysx.models.emt.sca_thermal import sca_effective_conductivity, sca_sc_effective_conductivity
 
 
 def electrical_conductivity(
@@ -28,6 +29,20 @@ def electrical_conductivity(
             [solid_fraction, porosity],
             [matrix_value, effective_fluid],
             [1.0, microstructure.aspect_ratio],
+        )
+    if model_name == "sca":
+        return sca_effective_conductivity(
+            matrix_value,
+            effective_fluid,
+            porosity,
+            aspect_ratio=microstructure.aspect_ratio,
+        )
+    if model_name == "sca_sc":
+        return sca_sc_effective_conductivity(
+            matrix_value,
+            effective_fluid,
+            porosity,
+            aspect_ratio=microstructure.aspect_ratio,
         )
     if model_name == "maxwell":
         return maxwell_garnett_isotropic(matrix_value, effective_fluid, porosity)

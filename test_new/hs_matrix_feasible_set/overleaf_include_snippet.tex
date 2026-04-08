@@ -1,0 +1,27 @@
+% Add these to your preamble:
+% \usepackage{graphicx}
+% \usepackage{booktabs}
+% \usepackage{subcaption}
+%
+% If you copy figures into a dedicated folder, you can also use:
+% \graphicspath{{figures/}}
+
+% --- Figure: HS bounds (before vs after) ---
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=\textwidth]{test_new/porosity_relationships/hs_bounds/hs_bounds_tc_vp_vs_before_after.png}
+\caption{HS bounds and linear regression trends for thermal conductivity and elastic velocities versus porosity, shown for dried and brine-saturated samples before and after MPCT. Error bars indicate measurement uncertainty (TC: 2.5\%, $V_P,V_S$: 5\%) for points close to HS bounds.}
+\label{fig:hs_bounds_before_after}
+\end{figure}
+
+% --- Table: probability-weighted 95% intervals (P2) ---
+\input{test_new/hs_matrix_feasible_set/probability_weighted_95ci_pretty.tex}
+
+% --- Figure: probability-weighted 2D contours (P2) ---
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=\textwidth]{test_new/hs_matrix_feasible_set/probability_weighted_2d_contours.pdf}
+\caption{Probability-weighted 2D contours (95\% mass) for matrix parameters $\lambda_M$, $V_{P,M}$, and $V_{S,M}$ based on the feasibility probability $P(\text{data in HS}\mid\theta)$ under Gaussian measurement errors.}
+\label{fig:hs_prob_weighted_2d}
+\end{figure}
+

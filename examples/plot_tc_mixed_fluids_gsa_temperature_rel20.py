@@ -30,11 +30,25 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize, TwoSlopeNorm
+from matplotlib.ticker import AutoMinorLocator, MultipleLocator, MaxNLocator
 
 from rockphysx.models.emt.gsa_transport import two_phase_thermal_isotropic
 
 
 plt.rcParams["contour.negative_linestyle"] = "solid"
+
+plt.rcParams.update({
+    "font.size": 12,
+    "axes.labelsize": 13,
+    "axes.titlesize": 14,
+    "xtick.labelsize": 11,
+    "ytick.labelsize": 11,
+    "legend.fontsize": 10,
+    "axes.linewidth": 1.0,
+    "savefig.facecolor": "white",
+    "figure.facecolor": "white",
+    "axes.facecolor": "white",
+})
 
 
 @dataclass(frozen=True)
@@ -162,7 +176,7 @@ def relative_increase_percent_isothermal(pair: FluidPair, matrix_tc: float, poro
 
 
 def relative_temp_change_percent(pair: FluidPair, matrix_tc20: float, porosity: float, sat_high: np.ndarray, alpha: np.ndarray, t_c: float, tref_c: float = 20.0) -> np.ndarray:
-    """100*(lambda*(T)-lambda*(Tref))/lambda*(Tref) for a mixed-fluid rock."""
+    """(lambda*(T)-lambda*(Tref))/lambda*(Tref) for a mixed-fluid rock."""
     sat_grid, alpha_grid = np.broadcast_arrays(np.asarray(sat_high, dtype=float), np.asarray(alpha, dtype=float))
     out = np.empty_like(sat_grid, dtype=float)
 
@@ -184,6 +198,112 @@ def relative_temp_change_percent(pair: FluidPair, matrix_tc20: float, porosity: 
 # --------------------------
 # Plotting
 # --------------------------
+
+def make_component_relchange_figure(
+    outpath: Path,
+    matrix_tc20: float,
+    t_min_c: float,
+    t_max_c: float,
+    n_t: int,
+) -> None:
+    plt.rcParams.update({
+        "font.size": 12,
+        "axes.labelsize": 13,
+        "axes.titlesize": 14,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+        "legend.fontsize": 10,
+        "axes.linewidth": 1.0,
+        "savefig.facecolor": "white",
+        "figure.facecolor": "white",
+        "axes.facecolor": "white",
+    })
+
+    t_c = np.linspace(t_min_c, t_max_c, n_t)
+
+    lam_m = np.array([lambda_matrix_sw(t, matrix_tc20) for t in t_c])
+    lam_w = np.array([lambda_water_lowT_eq314(t) for t in t_c])
+    lam_o = np.array([lambda_oil_eq315(t) for t in t_c])
+    lam_g = np.array([lambda_gas_eq315(t) for t in t_c])
+
+    lam_m_20 = lambda_matrix_sw(20.0, matrix_tc20)
+    lam_w_20 = lambda_water_lowT_eq314(20.0)
+    lam_o_20 = lambda_oil_eq315(20.0)
+    lam_g_20 = lambda_gas_eq315(20.0)
+
+    d_m = 100.0 * (lam_m - lam_m_20) / lam_m_20
+    d_w = 100.0 * (lam_w - lam_w_20) / lam_w_20
+    d_o = 100.0 * (lam_o - lam_o_20) / lam_o_20
+    d_g = 100.0 * (lam_g - lam_g_20) / lam_g_20
+
+    blue = "#1f4e79"
+    red = "#b22222"
+    black = "#111111"
+
+    fig, axes = plt.subplots(
+        2, 1,
+        figsize=(8.8, 7.6),
+        sharex=True,
+        constrained_layout=True
+    )
+
+    # -------- upper panel: matrix --------
+    ax = axes[0]
+    ax.plot(t_c, d_m, color=black, lw=2.6)
+    ax.axhline(0.0, color="0.35", lw=1.0, ls="--", alpha=0.5)
+
+    ax.set_ylabel(r"$\delta\lambda_M(T)$ (%)")
+    # ax.set_title(r"Relative change with respect to $20^\circ$C", pad=10)
+    ax.text(0.02, 0.94, "(a) Matrix", transform=ax.transAxes, ha="left", va="top", fontsize=12)
+
+    ax.xaxis.set_major_locator(MultipleLocator(10))
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+
+    # more major/minor lines for easier reading
+    ax.yaxis.set_major_locator(MultipleLocator(2))
+    ax.yaxis.set_minor_locator(MultipleLocator(1))
+
+    ax.grid(True, which="major", color="0.70", linewidth=0.8, alpha=0.35)
+    ax.grid(True, which="minor", color="0.82", linewidth=0.5, alpha=0.25)
+
+    ax.tick_params(axis="both", which="major", direction="out", length=6, width=1.0)
+    ax.tick_params(axis="both", which="minor", direction="out", length=3.5, width=0.8)
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # -------- lower panel: pore fluids --------
+    ax = axes[1]
+    ax.plot(t_c, d_w, color=blue, lw=2.4, label=r"$\Delta\lambda_{\mathrm{brine}}(T)$")
+    ax.plot(t_c, d_o, color=red, lw=2.4, label=r"$\Delta\lambda_{\mathrm{oil}}(T)$")
+    ax.plot(t_c, d_g, color=black, lw=2.4, label=r"$\Delta\lambda_{\mathrm{gas}}(T)$")
+    ax.axhline(0.0, color="0.35", lw=1.0, ls="--", alpha=0.5)
+
+    ax.set_xlabel(r"Temperature ($^\circ$C)")
+    ax.set_ylabel(r"$\Delta\lambda_f(T)$ (%)")
+    ax.text(0.02, 0.94, "(b) Pore fluids", transform=ax.transAxes, ha="left", va="top", fontsize=12)
+
+    ax.xaxis.set_major_locator(MultipleLocator(10))
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+
+    # especially for gas: denser y-axis structure
+    ax.yaxis.set_major_locator(MultipleLocator(10))
+    ax.yaxis.set_minor_locator(MultipleLocator(5))
+
+    ax.grid(True, which="major", color="0.70", linewidth=0.8, alpha=0.35)
+    ax.grid(True, which="minor", color="0.82", linewidth=0.5, alpha=0.25)
+
+    ax.tick_params(axis="both", which="major", direction="out", length=6, width=1.0)
+    ax.tick_params(axis="both", which="minor", direction="out", length=3.5, width=0.8)
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    ax.legend(loc="upper left", ncol=1, frameon=False, handlelength=2.8)
+
+    fig.savefig(outpath, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
 
 def make_porosity_figure(outpath: Path, matrix_tc: float, alphas: list[float], phi_max: float, n_phi: int, n_sat: int) -> None:
     phi = np.linspace(0.0, phi_max, n_phi)
@@ -250,7 +370,7 @@ def make_error_figure(outpath: Path, matrix_tc: float, phi_values: list[float], 
             ax.clabel(cs, inline=True, fontsize=10, fmt=lambda v: f"{v:.1f}%")
 
             if r == 0:
-                ax.set_title(rf"$\phi$ = {phi*100:.1f}\%", fontsize=18, pad=10)
+                ax.set_title(rf"$\phi$ = {phi*100:.1f}%", fontsize=18, pad=10)
             if c == 0:
                 ax.set_ylabel(pair.ylabel, fontsize=15)
             if r == 2:
@@ -375,7 +495,7 @@ def make_temp_relchange_atlas(outpath: Path, matrix_tc20: float, phi_values: lis
             ax.clabel(cs, inline=True, fontsize=9, fmt=lambda v: f"{v:.1f}%")
 
             if r == 0:
-                ax.set_title(rf"$\phi$ = {phi*100:.1f}\%", fontsize=18, pad=10)
+                ax.set_title(rf"$\phi$ = {phi*100:.1f}%", fontsize=18, pad=10)
             if c == 0:
                 ax.set_ylabel(pair.ylabel, fontsize=15)
             if r == 2:
@@ -388,7 +508,7 @@ def make_temp_relchange_atlas(outpath: Path, matrix_tc20: float, phi_values: lis
     sm = ScalarMappable(norm=norm, cmap=cmap)
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=axes, location="right", shrink=0.95, pad=0.03)
-    cbar.set_label(rf"Relative change: $100(\lambda^*(T)-\lambda^*(20^\circ C))/\lambda^*(20^\circ C)$, T={t_c:.0f}$^\circ$C (%)", fontsize=11)
+    cbar.set_label(rf"Relative change: $(\lambda^*(T)-\lambda^*(20^\circ C))/\lambda^*(20^\circ C)*100$, T={t_c:.0f}$^\circ$C (%)", fontsize=11)
     cbar.ax.tick_params(labelsize=10)
 
     fig.savefig(outpath, dpi=220, bbox_inches="tight")
@@ -432,7 +552,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--t-min-c", type=float, default=20.0)
     p.add_argument("--t-max-c", type=float, default=130.0)
     p.add_argument("--n-t", type=int, default=300)
-    p.add_argument("--atlas-temperatures", type=float, nargs="*", default=[20.0, 75.0, 130.0], help="Temperatures for temperature-aware atlases")
+    p.add_argument("--atlas-temperatures", type=float, nargs="*", default=[20.0, 50.0, 100.0], help="Temperatures for temperature-aware atlases")
     args = p.parse_args()
     if args.t_max_c > 130.0:
         p.error("This script intentionally restricts water Eq. (3.14) to <=130 C.")
@@ -466,14 +586,22 @@ def main() -> None:
         n_sat=args.n_sat,
     )
 
-    # component functions vs temperature
-    make_component_temperature_figure(
-        outdir / "ch4_temp_component_functions.png",
-        matrix_tc20=args.matrix_tc,
-        t_min_c=args.t_min_c,
-        t_max_c=args.t_max_c,
-        n_t=args.n_t,
-    )
+    # # component functions vs temperature
+    # make_component_temperature_figure(
+    #     outdir / "ch4_temp_component_functions.png",
+    #     matrix_tc20=args.matrix_tc,
+    #     t_min_c=args.t_min_c,
+    #     t_max_c=args.t_max_c,
+    #     n_t=args.n_t,
+    # )
+
+    make_component_relchange_figure(
+    outdir / "ch4_temp_component_relchange.png",
+    matrix_tc20=args.matrix_tc,
+    t_min_c=args.t_min_c,
+    t_max_c=args.t_max_c,
+    n_t=args.n_t,
+)
 
     # temperature-aware atlases
     for t_c in args.atlas_temperatures:
@@ -502,6 +630,32 @@ def main() -> None:
 
     write_summary(outdir, args)
     print(f"Saved results to: {outdir}")
+
+
+def style_scientific_axis(ax, x_major=None, y_major=None, x_minor=2, y_minor=2):
+    if x_major is not None:
+        ax.xaxis.set_major_locator(MultipleLocator(x_major))
+    else:
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=7))
+
+    if y_major is not None:
+        ax.yaxis.set_major_locator(MultipleLocator(y_major))
+    else:
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=6))
+
+    ax.xaxis.set_minor_locator(AutoMinorLocator(x_minor))
+    ax.yaxis.set_minor_locator(AutoMinorLocator(y_minor))
+
+    ax.grid(True, which="major", color="0.70", linewidth=0.8, alpha=0.35)
+    ax.grid(True, which="minor", color="0.82", linewidth=0.5, alpha=0.25)
+
+    ax.tick_params(axis="both", which="major", direction="out", length=6, width=1.0)
+    ax.tick_params(axis="both", which="minor", direction="out", length=3.5, width=0.8)
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_linewidth(1.0)
+    ax.spines["bottom"].set_linewidth(1.0)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,15 @@
+\begin{table}[ht!]
+\centering
+\caption{Model comparison for LA thermal conductivity for the analyzed carbonate collection.}
+\label{tab:la\_model\_comparison}
+\begin{tabular}{lrrrrrrrrr}
+\toprule
+\textbf{model} & \textbf{RMSE\_all} & \textbf{RMSE\_dry} & \textbf{RMSE\_brine} & \textbf{MAE\_all} & \textbf{MAE\_dry} & \textbf{MAE\_brine} & \textbf{R2\_all} & \textbf{R2\_dry} & \textbf{R2\_brine} \\
+\midrule
+A: simple Lichtenecker (f=1) & 0.24447 & 0.34115 & 0.05608 & 0.18889 & 0.33440 & 0.04338 & 0.33828 & -2.84673 & 0.73752 \\
+B: fixed mean f & 0.17660 & 0.12251 & 0.21764 & 0.15112 & 0.09554 & 0.20670 & 0.65470 & 0.50398 & -2.95271 \\
+C: old transfer relation & 0.10556 & 0.12888 & 0.07535 & 0.07953 & 0.10537 & 0.05369 & 0.87662 & 0.45103 & 0.52617 \\
+D: unified f(alpha, lambda\_f) & 0.06579 & 0.07450 & 0.05573 & 0.05329 & 0.06425 & 0.04232 & 0.95208 & 0.81658 & 0.74079 \\
+\bottomrule
+\end{tabular}
+\end{table}

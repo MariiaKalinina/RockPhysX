@@ -72,7 +72,7 @@ def add_panel_label(ax: plt.Axes, label: str) -> None:
 def save_figure(fig: plt.Figure, output_dir: Path, stem: str) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_dir / f"{stem}.png", dpi=300, bbox_inches="tight")
-    fig.savefig(output_dir / f"{stem}.pdf", bbox_inches="tight")
+    fig.savefig(output_dir / f"{stem}.png", bbox_inches="tight")
 
 
 # ---------------------------------------------------------------------

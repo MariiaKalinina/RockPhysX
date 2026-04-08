@@ -126,7 +126,7 @@ OUTPUT_DIR = Path("figures/thermal")
 def save_figure(fig: plt.Figure, stem: str) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUTPUT_DIR / f"{stem}.png", dpi=300, bbox_inches="tight")
-    fig.savefig(OUTPUT_DIR / f"{stem}.pdf", bbox_inches="tight")
+    fig.savefig(OUTPUT_DIR / f"{stem}.png", bbox_inches="tight")
 
 
 # -----------------------------------------------------------------------------

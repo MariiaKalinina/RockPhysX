@@ -23,10 +23,19 @@ Inversion strategy
 ------------------
 For GSA and SCA, one effective aspect ratio alpha is fitted per sample by solving
 
-    alpha_hat = arg min_alpha sum_i w_i |X_calc_i(alpha) - X_meas_i|
+    alpha_hat = arg min_alpha sum_i w_i * loss(X_calc_i(alpha), X_meas_i)
 
 across the three selected saturation states. Bruggeman does not use an aspect-ratio
 parameter in the current RockPhysX implementation, so w95(AR) is reported as NaN.
+
+Loss function options
+---------------------
+The objective function used to fit aspect ratio can be selected via ``--objective``:
+
+- ``l1``:      |pred - obs|
+- ``sse``:     (pred - obs)^2
+- ``rel_sse``: ((pred - obs) / obs)^2
+- ``log_sse``: (log(pred) - log(obs))^2
 
 Run from the repository root, for example:
 
@@ -77,6 +86,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--brine_avg-tc", type=float, default=DEFAULT_brine_avg_TC)
     parser.add_argument("--alpha-min", type=float, default=DEFAULT_ALPHA_BOUNDS[0])
     parser.add_argument("--alpha-max", type=float, default=DEFAULT_ALPHA_BOUNDS[1])
+    parser.add_argument(
+        "--objective",
+        choices=("l1", "sse", "rel_sse", "log_sse"),
+        default="l1",
+        help="Loss for aspect-ratio fitting. Default: %(default)s",
+    )
+    parser.add_argument(
+        "--exclude-sample",
+        type=int,
+        action="append",
+        default=[],
+        help="Sample id to exclude. Can be passed multiple times.",
+    )
+    parser.add_argument(
+        "--keep-suspect-porosity",
+        action="store_true",
+        help="Keep the sample with suspect porosity (~9.16033%%) that is excluded by default.",
+    )
     return parser.parse_args()
 
 
@@ -127,7 +154,13 @@ def build_sample(porosity_fraction: float, matrix_tc: float, alpha: float, *, ai
 
 
 
-def load_dataset(path: Path, sheet: str) -> pd.DataFrame:
+def load_dataset(
+    path: Path,
+    sheet: str,
+    *,
+    exclude_samples: set[int] | None = None,
+    keep_suspect_porosity: bool = False,
+) -> pd.DataFrame:
     df = pd.read_excel(path, sheet_name=sheet)
 
     brine_cols = ["TC 0,6", "TC 6", "TC 60", "TC 180"]
@@ -151,7 +184,11 @@ def load_dataset(path: Path, sheet: str) -> pd.DataFrame:
 
     out = out.dropna(subset=["Sample", "porosity_pct", "tc_air", "tc_oil", "tc_brine_avg"])
     out["porosity"] = out["porosity_pct"] / 100.0
-    out = out[~np.isclose(out["porosity"], 0.091603304119034, rtol=0.0, atol=1e-12)] # exclude one sample with very porosity = 9.6% that is likely a data error
+    if not keep_suspect_porosity:
+        # Exclude one sample with porosity ~9.16033% that is likely a data error.
+        out = out[~np.isclose(out["porosity"], 0.091603304119034, rtol=0.0, atol=1e-12)]
+    if exclude_samples:
+        out = out[~out["Sample"].astype(int).isin(sorted(exclude_samples))]
     out = out[(out["porosity"] > 0.0) & (out["porosity"] < 1.0)]
     out = out[(out[["tc_air", "tc_oil", "tc_brine_avg"]] > 0.0).all(axis=1)]
     out = out.reset_index(drop=True)
@@ -241,11 +278,42 @@ def predict_three_states_bruggeman(
 
 
 
-def objective_alpha(log10_alpha: float, porosity: float, measured: dict[str, float], model: str, solver: ForwardSolver, *, matrix_tc: float, air_tc: float, oil_tc: float, brine_tc: float, weights: dict[str, float]) -> float:
+def loss_value(pred: float, obs: float, mode: str) -> float:
+    if not (math.isfinite(pred) and math.isfinite(obs)):
+        return 1e30
+    if mode == "l1":
+        return abs(pred - obs)
+    if mode == "sse":
+        return (pred - obs) ** 2
+    if mode == "rel_sse":
+        if obs == 0:
+            return 1e30
+        return ((pred - obs) / obs) ** 2
+    if mode == "log_sse":
+        if pred <= 0 or obs <= 0:
+            return 1e30
+        return (math.log(pred) - math.log(obs)) ** 2
+    raise ValueError(f"Unknown objective mode: {mode!r}")
+
+
+def objective_alpha(
+    log10_alpha: float,
+    porosity: float,
+    measured: dict[str, float],
+    model: str,
+    solver: ForwardSolver,
+    *,
+    matrix_tc: float,
+    air_tc: float,
+    oil_tc: float,
+    brine_tc: float,
+    weights: dict[str, float],
+    objective_mode: str,
+) -> float:
     alpha = 10.0 ** log10_alpha
     sample = build_sample(porosity, matrix_tc, alpha, air_tc=air_tc, oil_tc=oil_tc, brine_tc=brine_tc)
     predicted = predict_three_states(sample, model, solver)
-    return float(sum(weights[state] * abs(predicted[state] - measured[state]) for state in measured))
+    return float(sum(weights[state] * loss_value(predicted[state], measured[state], objective_mode) for state in measured))
 
 
 def fit_alpha_for_sample(
@@ -261,6 +329,7 @@ def fit_alpha_for_sample(
     oil_tc: float,
     brine_tc: float,
     weights: dict[str, float],
+    objective_mode: str,
 ) -> tuple[float, dict[str, float], float]:
     def objective(log10_alpha: float) -> float:
         return objective_alpha(
@@ -274,6 +343,7 @@ def fit_alpha_for_sample(
             oil_tc=oil_tc,
             brine_tc=brine_tc,
             weights=weights,
+            objective_mode=objective_mode,
         )
 
     result = minimize_scalar(
@@ -299,7 +369,17 @@ def fit_alpha_for_sample(
 
 
 
-def evaluate_models(df: pd.DataFrame, *, matrix_tc: float, air_tc: float, oil_tc: float, brine_tc: float, alpha_min: float, alpha_max: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def evaluate_models(
+    df: pd.DataFrame,
+    *,
+    matrix_tc: float,
+    air_tc: float,
+    oil_tc: float,
+    brine_tc: float,
+    alpha_min: float,
+    alpha_max: float,
+    objective_mode: str,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     solver = ForwardSolver()
     weights = {"dry": 1.0, "oil": 1.0, "brine_avg": 1.0}
 
@@ -334,6 +414,7 @@ def evaluate_models(df: pd.DataFrame, *, matrix_tc: float, air_tc: float, oil_tc
                 oil_tc=oil_tc,
                 brine_tc=brine_tc,
                 weights=weights,
+                objective_mode=objective_mode,
             )
             sample_rows.append(
                 {
@@ -341,7 +422,8 @@ def evaluate_models(df: pd.DataFrame, *, matrix_tc: float, air_tc: float, oil_tc
                     "porosity": porosity,
                     "model": model.upper(),
                     "alpha_fit": alpha_hat,
-                    "objective_L1": objective_value,
+                    "objective_mode": objective_mode,
+                    "objective_value": objective_value,
                 }
             )
             for state in ("dry", "oil", "brine_avg"):
@@ -359,13 +441,15 @@ def evaluate_models(df: pd.DataFrame, *, matrix_tc: float, air_tc: float, oil_tc
 
         # Bruggeman: direct prediction, no AR parameter
         predicted_br = predict_three_states_bruggeman(porosity, matrix_tc, air_tc=air_tc, oil_tc=oil_tc, brine_tc=brine_tc)
+        obj_br = float(sum(weights[state] * loss_value(predicted_br[state], measured[state], objective_mode) for state in measured))
         sample_rows.append(
             {
                 "sample": sample_id,
                 "porosity": porosity,
                 "model": "BRUGGEMAN",
                 "alpha_fit": np.nan,
-                "objective_L1": sum(abs(predicted_br[s] - measured[s]) for s in measured),
+                "objective_mode": objective_mode,
+                "objective_value": obj_br,
             }
         )
         for state in ("dry", "oil", "brine_avg"):
@@ -463,7 +547,12 @@ def main() -> None:
     args = parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
 
-    df = load_dataset(args.excel, args.sheet)
+    df = load_dataset(
+        args.excel,
+        args.sheet,
+        exclude_samples=set(args.exclude_sample),
+        keep_suspect_porosity=args.keep_suspect_porosity,
+    )
     summary, per_sample, points = evaluate_models(
         df,
         matrix_tc=args.matrix_tc,
@@ -472,6 +561,7 @@ def main() -> None:
         brine_tc=args.brine_avg_tc,
         alpha_min=args.alpha_min,
         alpha_max=args.alpha_max,
+        objective_mode=args.objective,
     )
     state_table = by_state_summary(points)
     alpha_table = alpha_fit_summary(per_sample)

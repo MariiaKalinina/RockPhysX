@@ -1,0 +1,21 @@
+\begin{table}[ht!]
+\centering
+\caption{Bayesian inversion settings (collection run).}
+\label{tab:bayes\_m1\_settings}
+\begin{tabular}{ll}
+\toprule
+\textbf{item} & \textbf{value} \\
+\midrule
+analysis\_type & Independent grid-Bayes M1 per sample \\
+data & TC + Vp + Vs \\
+parameters & z\_before, z\_after (derived delta\_z, AO\_before, AO\_after, ratio) \\
+prior & uniform box z∈[-4,0] + weak Gaussian prior on delta\_z with sigma=1.0 \\
+likelihood & Gaussian in log-space using experimental relative uncertainties \\
+practical\_delta & 0.100 \\
+nuisance\_mode & MC-marginalized per-sample, draws=1 \\
+lambda\_M\_prior & Uniform(2.80, 2.92) W/(m·K) \\
+K\_M\_prior & LogNormal(median=73.5 GPa, rel\_sigma=0.12) \\
+G\_M\_prior & LogNormal(median=39.3 GPa, rel\_sigma=0.10) \\
+\bottomrule
+\end{tabular}
+\end{table}

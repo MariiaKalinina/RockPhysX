@@ -1,0 +1,11 @@
+item,value
+analysis_type,Independent grid-Bayes M1 per sample
+data,TC + Vp + Vs
+parameters,"z_before, z_after (derived delta_z, AO_before, AO_after, ratio)"
+prior,"uniform box z∈[-4,0] + weak Gaussian prior on delta_z with sigma=1.0"
+likelihood,Gaussian in log-space using experimental relative uncertainties
+practical_delta,0.1
+nuisance_mode,"MC-marginalized per-sample, draws=1"
+lambda_M_prior,"Uniform(2.80, 2.92) W/(m·K)"
+K_M_prior,"LogNormal(median=73.5 GPa, rel_sigma=0.12)"
+G_M_prior,"LogNormal(median=39.3 GPa, rel_sigma=0.10)"

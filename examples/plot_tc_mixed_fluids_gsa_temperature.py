@@ -30,9 +30,28 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
+from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 
 from rockphysx.models.emt.gsa_transport import two_phase_thermal_isotropic
 
+plt.rcParams.update({
+    "figure.facecolor": "white",
+    "axes.facecolor": "white",
+    "savefig.facecolor": "white",
+    "axes.edgecolor": "0.15",
+    "axes.linewidth": 1.0,
+    "font.size": 12,
+    "axes.labelsize": 13,
+    "axes.titlesize": 14,
+    "xtick.labelsize": 11,
+    "ytick.labelsize": 11,
+    "legend.fontsize": 10,
+    "legend.frameon": False,
+    "lines.linewidth": 2.2,
+    "grid.color": "0.75",
+    "grid.linewidth": 0.7,
+    "grid.alpha": 0.35,
+})
 
 @dataclass(frozen=True)
 class FluidPair:
@@ -247,7 +266,6 @@ def make_error_figure(outpath: Path, matrix_tc: float, phi_values: list[float], 
     fig.savefig(outpath, dpi=220, bbox_inches="tight")
     plt.close(fig)
 
-
 def make_component_temperature_figure(
     outpath: Path,
     matrix_lambda20: float,
@@ -262,25 +280,69 @@ def make_component_temperature_figure(
     lam_o = lambda_oil_315(T_c)
     lam_g = lambda_gas_315(T_c)
 
-    fig, axes = plt.subplots(2, 1, figsize=(9, 8), sharex=True, constrained_layout=True)
+    fig, axes = plt.subplots(
+        2, 1,
+        figsize=(8.6, 7.8),
+        sharex=True,
+        constrained_layout=True
+    )
 
-    axes[0].plot(T_c, lam_M, lw=2.4, label=rf"$\lambda_M(T)$, $\lambda_{{20}}={matrix_lambda20:.2f}$")
-    axes[0].set_ylabel(r"Matrix thermal conductivity $\lambda_M$ (W m$^{-1}$ K$^{-1}$)")
-    axes[0].grid(alpha=0.2)
-    axes[0].legend(frameon=False)
-    axes[0].set_title("Temperature-dependent phase thermal conductivities")
+    red = "#b22222"
+    blue = "#1f4e79"
+    black = "#111111"
 
-    axes[1].plot(T_c, lam_w, lw=2.2, label=r"$\lambda_w(T)$")
-    axes[1].plot(T_c, lam_o, lw=2.2, label=r"$\lambda_o(T)$")
-    axes[1].plot(T_c, lam_g, lw=2.2, label=r"$\lambda_g(T)$")
-    axes[1].set_xlabel("Temperature (°C)")
-    axes[1].set_ylabel(r"Fluid thermal conductivity $\lambda_f$ (W m$^{-1}$ K$^{-1}$)")
-    axes[1].grid(alpha=0.2)
-    axes[1].legend(frameon=False, ncol=1)
+    # -------- upper panel: matrix --------
+    ax = axes[0]
+    ax.plot(T_c, lam_M, color=black, lw=2.6)
 
-    fig.savefig(outpath, dpi=220, bbox_inches="tight")
+    ax.set_ylabel(r"$\lambda_M(T)$ (W m$^{-1}$ K$^{-1}$)")
+    # ax.set_title("Temperature-dependent thermal conductivity of matrix and pore fluids", pad=10)
+    ax.grid(True, which="major", alpha=0.30)
+    ax.grid(True, which="minor", alpha=0.15)
+
+    ax.xaxis.set_major_locator(MultipleLocator(10))
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+
+    # ax.text(
+    #     0.02, 0.92,
+    #     rf"(a) Matrix, $\lambda_{{M,20}}={matrix_lambda20:.2f}$ W m$^{{-1}}$ K$^{{-1}}$",
+    #     transform=ax.transAxes,
+    #     ha="left", va="top", fontsize=12
+    # )
+
+    # -------- lower panel: fluids --------
+    ax = axes[1]
+    ax.plot(T_c, lam_w, color=blue, lw=2.4, label=r"$\lambda_{brine}(T)$")
+    ax.plot(T_c, lam_o, color=red, lw=2.4, label=r"$\lambda_{oil}(T)$")
+    ax.plot(T_c, lam_g, color=black, lw=2.4, label=r"$\lambda_{gas}(T)$")
+
+    ax.set_xlabel(r"Temperature ($^\circ$C)")
+    ax.set_ylabel(r"$\lambda_f(T)$ (W m$^{-1}$ K$^{-1}$)")
+    ax.grid(True, which="major", alpha=0.30)
+    ax.grid(True, which="minor", alpha=0.15)
+
+    ax.xaxis.set_major_locator(MultipleLocator(10))
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+
+    ax.legend(loc="upper right", ncol=3, handlelength=2.8)
+
+    # ax.text(
+    #     0.02, 0.92,
+    #     "(b) Pore-fluid functions",
+    #     transform=ax.transAxes,
+    #     ha="left", va="top", fontsize=12
+    # )
+
+    for ax in axes:
+        ax.tick_params(axis="both", which="major", direction="out", length=5, width=1.0)
+        ax.tick_params(axis="both", which="minor", direction="out", length=3, width=0.8)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    fig.savefig(outpath, dpi=300, bbox_inches="tight")
     plt.close(fig)
-
 
 def make_temperature_effect_figure(
     outpath: Path,
@@ -294,12 +356,28 @@ def make_temperature_effect_figure(
     strict_book_water_kelvin: bool = False,
 ) -> None:
     T_c = np.linspace(t_min_c, t_max_c, n_t)
-    fig, axes = plt.subplots(3, 3, figsize=(14, 10), sharex=True, constrained_layout=True)
+
+    fig, axes = plt.subplots(
+        3, 3,
+        figsize=(13.8, 10.0),
+        sharex=True,
+        sharey=False,
+        constrained_layout=True
+    )
+
+    red = "#b22222"
+    blue = "#1f4e79"
+    black = "#111111"
+
+    # fixed colors for saturation curves
+    sat_palette = [black, blue, red]
+    sat_alpha = 0.95
 
     for r, pair in enumerate(PAIRS):
         for c, alpha in enumerate(alphas):
             ax = axes[r, c]
-            for sat in sat_levels:
+
+            for k, sat in enumerate(sat_levels):
                 lam_eff = mixed_effective_tc_grid_temperature(
                     pair.name,
                     matrix_lambda20,
@@ -309,22 +387,166 @@ def make_temperature_effect_figure(
                     T_c,
                     strict_book_water_kelvin=strict_book_water_kelvin,
                 )
-                ax.plot(T_c, lam_eff, lw=2.0, label=rf"$S$={sat:.1f}")
+
+                color = sat_palette[k % len(sat_palette)]
+                ax.plot(
+                    T_c,
+                    lam_eff,
+                    color=color,
+                    lw=2.2,
+                    alpha=sat_alpha,
+                    label=rf"$S={sat:.1f}$"
+                )
 
             if r == 0:
-                ax.set_title(rf"$\alpha$ = {alpha:g}", fontsize=18, pad=10)
-            if c == 0:
-                ax.set_ylabel(f"{pair.name}\n$\\lambda^*(T)$ (W m$^{{-1}}$ K$^{{-1}}$)", fontsize=13)
-            if r == 2:
-                ax.set_xlabel("Temperature (°C)", fontsize=14)
-            ax.grid(alpha=0.18)
-            if r == 0 and c == 2:
-                ax.legend(frameon=False, loc="best")
+                ax.set_title(rf"$\alpha = {alpha:g}$", pad=8)
 
-    fig.suptitle(rf"Temperature dependence of effective thermal conductivity at fixed porosity $\phi$ = {phi_ref*100:.1f}\%", fontsize=16)
-    fig.savefig(outpath, dpi=220, bbox_inches="tight")
+            if c == 0:
+                ax.set_ylabel(
+                    pair.name + "\n" + r"$\lambda^*(T)$ (W m$^{-1}$ K$^{-1}$)",
+                    fontsize=12
+                )
+
+            if r == 2:
+                ax.set_xlabel(r"Temperature ($^\circ$C)")
+
+            # ticks and grid
+            ax.xaxis.set_major_locator(MultipleLocator(20))
+            ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+            ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+
+            ax.grid(True, which="major", alpha=0.28)
+            ax.grid(True, which="minor", alpha=0.12)
+
+            ax.tick_params(axis="both", which="major", direction="out", length=5, width=1.0)
+            ax.tick_params(axis="both", which="minor", direction="out", length=3, width=0.8)
+
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+
+            # # subtle panel label
+            # ax.text(
+            #     0.03, 0.95,
+            #     f"({chr(97 + r*3 + c)})",
+            #     transform=ax.transAxes,
+            #     ha="left", va="top", fontsize=11
+            # )
+
+    # one shared legend
+    handles = [
+        plt.Line2D([0], [0], color=black, lw=2.2, alpha=0.95, label=rf"$S={sat_levels[0]:.1f}$"),
+        plt.Line2D([0], [0], color=blue,  lw=2.2, alpha=0.95, label=rf"$S={sat_levels[1]:.1f}$"),
+        plt.Line2D([0], [0], color=red,   lw=2.2, alpha=0.95, label=rf"$S={sat_levels[2]:.1f}$"),
+    ]
+    fig.legend(
+        handles=handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=3,
+        frameon=False
+    )
+
+    fig.suptitle(
+        rf"Temperature dependence of effective thermal conductivity at fixed porosity $\phi={phi_ref*100:.1f}\%$",
+        fontsize=15,
+        y=1.04
+    )
+
+    fig.savefig(outpath, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
+
+def make_component_relative_change_figure(
+    outpath: Path,
+    matrix_lambda20: float,
+    t_min_c: float,
+    t_max_c: float,
+    n_t: int,
+    strict_book_water_kelvin: bool = False,
+) -> None:
+    T_c = np.linspace(t_min_c, t_max_c, n_t)
+
+    lam_M = lambda_matrix_sw(T_c, matrix_lambda20)
+    lam_w = lambda_water_314(T_c, strict_book_water_kelvin=strict_book_water_kelvin)
+    lam_o = lambda_oil_315(T_c)
+    lam_g = lambda_gas_315(T_c)
+
+    # reference at 20 C
+    lam_M_20 = float(lambda_matrix_sw(np.array([20.0]), matrix_lambda20)[0])
+    lam_w_20 = float(lambda_water_314(np.array([20.0]), strict_book_water_kelvin=strict_book_water_kelvin)[0])
+    lam_o_20 = float(lambda_oil_315(np.array([20.0]))[0])
+    lam_g_20 = float(lambda_gas_315(np.array([20.0]))[0])
+
+    dM = 100.0 * (lam_M - lam_M_20) / lam_M_20
+    dw = 100.0 * (lam_w - lam_w_20) / lam_w_20
+    do = 100.0 * (lam_o - lam_o_20) / lam_o_20
+    dg = 100.0 * (lam_g - lam_g_20) / lam_g_20
+
+    fig, axes = plt.subplots(
+        2, 1,
+        figsize=(8.6, 7.8),
+        sharex=True,
+        constrained_layout=True
+    )
+
+    red = "#b22222"
+    blue = "#1f4e79"
+    black = "#111111"
+
+    # -------- upper panel: matrix relative change --------
+    ax = axes[0]
+    ax.plot(T_c, dM, color=black, lw=2.6)
+    ax.axhline(0.0, color="0.4", lw=1.0, ls="--", alpha=0.5)
+
+    ax.set_ylabel(r"$\delta\lambda_M(T)$ (%)")
+    # ax.set_title(r"Relative change with respect to $20^\circ$C", pad=10)
+    ax.grid(True, which="major", alpha=0.30)
+    ax.grid(True, which="minor", alpha=0.15)
+
+    ax.xaxis.set_major_locator(MultipleLocator(10))
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+
+    # ax.text(
+    #     0.02, 0.92,
+    #     "(a) Matrix",
+    #     transform=ax.transAxes,
+    #     ha="right", va="top", fontsize=12
+    # )
+
+    # -------- lower panel: fluid relative change --------
+    ax = axes[1]
+    ax.plot(T_c, dw, color=blue, lw=2.4, label=r"$\delta\lambda_{brine}(T)$")
+    ax.plot(T_c, do, color=red, lw=2.4, label=r"$\delta\lambda_{oil}(T)$")
+    ax.plot(T_c, dg, color=black, lw=2.4, label=r"$\delta\lambda_{gas}(T)$")
+    ax.axhline(0.0, color="0.4", lw=1.0, ls="--", alpha=0.5)
+
+    ax.set_xlabel(r"Temperature ($^\circ$C)")
+    ax.set_ylabel(r"$\delta\lambda_f(T)$ (%)")
+    ax.grid(True, which="major", alpha=0.30)
+    ax.grid(True, which="minor", alpha=0.15)
+
+    ax.xaxis.set_major_locator(MultipleLocator(10))
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+
+    ax.legend(loc="upper left", ncol=3, handlelength=2.8)
+
+    # ax.text(
+    #     0.02, 0.92,
+    #     "(b) Pore fluids",
+    #     transform=ax.transAxes,
+    #     ha="left", va="top", fontsize=12
+    # )
+
+    for ax in axes:
+        ax.tick_params(axis="both", which="major", direction="out", length=5, width=1.0)
+        ax.tick_params(axis="both", which="minor", direction="out", length=3, width=0.8)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    fig.savefig(outpath, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
 # ------------------------- CLI -------------------------
 
@@ -350,7 +572,7 @@ def parse_args() -> argparse.Namespace:
 
     # Temperature figures
     p.add_argument("--t-min-c", type=float, default=20.0)
-    p.add_argument("--t-max-c", type=float, default=200.0)
+    p.add_argument("--t-max-c", type=float, default=120.0)
     p.add_argument("--n-temp", type=int, default=241)
     p.add_argument("--temp-phi", type=float, default=0.105, help="Fixed porosity for the temperature-effect figure")
     p.add_argument("--temp-sats", type=float, nargs="*", default=[0.0, 0.5, 1.0], help="Saturation levels for temperature-effect figure")
@@ -387,6 +609,12 @@ def main() -> None:
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
+
+    if args.t_max_c > 130.0:
+        raise ValueError(
+            "This version is limited to 130°C because only the low-temperature water equation (3.14) is used."
+        )
+
     # Update isothermal reference pairs from CLI for the original two figures.
     PAIRS = [
         FluidPair(PAIRS[0].name, PAIRS[0].ylabel, PAIRS[0].low_name, PAIRS[0].high_name, args.air_tc, args.brine_tc),
@@ -394,24 +622,24 @@ def main() -> None:
         FluidPair(PAIRS[2].name, PAIRS[2].ylabel, PAIRS[2].low_name, PAIRS[2].high_name, args.oil_tc, args.brine_tc),
     ]
 
-    make_porosity_figure(
-        outdir / "ch4_carb_mix_porosity_reproduced.png",
-        matrix_tc=args.matrix_tc,
-        alphas=list(args.alphas),
-        phi_max=args.phi_max,
-        n_phi=args.n_phi,
-        n_sat=args.n_sat,
-    )
+    # make_porosity_figure(
+    #     outdir / "ch4_carb_mix_porosity_reproduced.png",
+    #     matrix_tc=args.matrix_tc,
+    #     alphas=list(args.alphas),
+    #     phi_max=args.phi_max,
+    #     n_phi=args.n_phi,
+    #     n_sat=args.n_sat,
+    # )
 
-    make_error_figure(
-        outdir / "ch4_carb_mix_error_reproduced.png",
-        matrix_tc=args.matrix_tc,
-        phi_values=list(args.error_porosity),
-        alpha_min=args.alpha_min,
-        alpha_max=args.alpha_max,
-        n_alpha=args.n_alpha,
-        n_sat=args.n_sat,
-    )
+    # make_error_figure(
+    #     outdir / "ch4_carb_mix_error_reproduced.png",
+    #     matrix_tc=args.matrix_tc,
+    #     phi_values=list(args.error_porosity),
+    #     alpha_min=args.alpha_min,
+    #     alpha_max=args.alpha_max,
+    #     n_alpha=args.n_alpha,
+    #     n_sat=args.n_sat,
+    # )
 
     make_component_temperature_figure(
         outdir / "ch4_temp_component_functions.png",
@@ -433,6 +661,15 @@ def main() -> None:
         n_t=args.n_temp,
         strict_book_water_kelvin=args.strict_book_water_kelvin,
     )
+
+    make_component_relative_change_figure(
+    outdir / "ch4_temp_component_relchange.png",
+    matrix_lambda20=args.matrix_tc,
+    t_min_c=args.t_min_c,
+    t_max_c=args.t_max_c,
+    n_t=args.n_temp,
+    strict_book_water_kelvin=args.strict_book_water_kelvin,
+)
 
     write_summary(outdir, args)
     print(f"Saved results to: {outdir}")

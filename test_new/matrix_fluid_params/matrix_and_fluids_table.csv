@@ -1,0 +1,16 @@
+Category,Parameter,p05,p50,p95,Unit
+Matrix (HS-feasible set),$\lambda_M$,2.72,2.85,2.98,W/(m·K)
+Matrix (HS-feasible set),"$V_{P,M}$",5506,6282,7063,m/s
+Matrix (HS-feasible set),"$V_{S,M}$",3153,3531,3909,m/s
+Matrix (HS-feasible set),$\sigma_M$,2.52e-10,1.02e-06,0.0040,S/m
+Matrix (HS-feasible set),$\\log_{10}\\sigma_M$,-9.60,-5.99,-2.40,
+Pore fluid (fixed),$\lambda_{\mathrm{air}}$,,0.03,,W/(m·K)
+Pore fluid (fixed),$K_{\mathrm{air}}$,,0.0001,,GPa
+Pore fluid (fixed),$\rho_{\mathrm{air}}$,,1.2,,kg/m$^3$
+Pore fluid (fixed),$\lambda_{\mathrm{brine}}$,,0.60,,W/(m·K)
+Pore fluid (fixed),$K_{\mathrm{brine}}$,,2.20,,GPa
+Pore fluid (fixed),$\rho_{\mathrm{brine}}$,,1030,,kg/m$^3$
+Brine (20 g/L NaCl),$R_f$ (before MPCT),,0.32,,$\Omega\cdot$m
+Brine (20 g/L NaCl),$\sigma_f$ (before MPCT),,3.1250,,S/m
+Brine (20 g/L NaCl),$R_f$ (after MPCT),,0.26,,$\Omega\cdot$m
+Brine (20 g/L NaCl),$\sigma_f$ (after MPCT),,3.8462,,S/m

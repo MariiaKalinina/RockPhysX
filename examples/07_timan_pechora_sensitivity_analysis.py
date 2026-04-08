@@ -141,7 +141,7 @@ def plot_sensitivity_bars(sample: SampleDescription, output_dir: Path) -> None:
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
     fig.savefig(output_dir / "07_timan_pechora_sensitivities.png", dpi=300, bbox_inches="tight")
-    fig.savefig(output_dir / "07_timan_pechora_sensitivities.pdf", bbox_inches="tight")
+    fig.savefig(output_dir / "07_timan_pechora_sensitivities.png", bbox_inches="tight")
 
 def plot_misfit_maps(sample: SampleDescription, measured: dict[SaturationState, float], output_dir: Path) -> None:
     alpha_grid = np.logspace(-2, 0, 120)
@@ -221,7 +221,7 @@ def plot_misfit_maps(sample: SampleDescription, measured: dict[SaturationState, 
     # )
 
     fig.savefig(output_dir / "07_timan_pechora_misfit_maps.png", dpi=300, bbox_inches="tight")
-    fig.savefig(output_dir / "07_timan_pechora_misfit_maps.pdf", bbox_inches="tight")
+    fig.savefig(output_dir / "07_timan_pechora_misfit_maps.png", bbox_inches="tight")
 
 
 
@@ -252,7 +252,7 @@ def plot_profile_misfits(sample: SampleDescription, measured: dict[SaturationSta
     ax.legend(frameon=False)
     fig.tight_layout()
     fig.savefig(output_dir / "07_timan_pechora_profile_misfit.png", dpi=300, bbox_inches="tight")
-    fig.savefig(output_dir / "07_timan_pechora_profile_misfit.pdf", bbox_inches="tight")
+    fig.savefig(output_dir / "07_timan_pechora_profile_misfit.png", bbox_inches="tight")
 
 
 

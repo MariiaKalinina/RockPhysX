@@ -1,7 +1,6 @@
 import numpy as np
-from importlib.machinery import SourceFileLoader
 
-m = SourceFileLoader('gsa_transport','/mnt/data/gsa_transport.py').load_module()
+from rockphysx.models.emt import gsa_transport as m
 
 
 def test_phi_to_zero():

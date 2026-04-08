@@ -276,7 +276,7 @@ def run_porosity_vs_tc_plot() -> None:
     outdir = Path("figures/thermal")
     outdir.mkdir(parents=True, exist_ok=True)
     plt.savefig(outdir / "05_tc_all_models_vs_porosity.png", dpi=300, bbox_inches="tight")
-    plt.savefig(outdir / "05_tc_all_models_vs_porosity.pdf", bbox_inches="tight")
+    plt.savefig(outdir / "05_tc_all_models_vs_porosity.png", bbox_inches="tight")
     plt.show()
 
 
